@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShieldCheck, Users, Building, Activity, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShieldCheck, Users, Building, Activity, CheckCircle2, BarChart3, ArrowRight } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 const AdminDashboardPage = () => {
@@ -17,17 +18,31 @@ const AdminDashboardPage = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-2">Platform Administration</h1>
           <p className="text-xs text-slate-500 mt-1">Logged in as Administrator {user?.name} ({user?.email})</p>
         </div>
+
+        <Link
+          to="/admin/analytics"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm shrink-0"
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-400" />
+          <span>Platform Analytics</span>
+        </Link>
       </div>
 
       {/* Admin Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Users className="w-5 h-5" />
+        <Link
+          to="/admin/analytics"
+          className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-emerald-400 transition-colors group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <BarChart3 className="w-5 h-5" />
           </div>
-          <span className="text-2xl font-bold text-slate-900 block">3</span>
-          <span className="text-xs text-slate-500 font-medium">Seed Accounts</span>
-        </div>
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold text-slate-900 block">Analytics</span>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+          </div>
+          <span className="text-xs text-slate-500 font-medium">Platform Revenue & Performance Reports</span>
+        </Link>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -56,19 +71,15 @@ const AdminDashboardPage = () => {
 
       {/* Admin Authorization Notice */}
       <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-4">
-        <h3 className="text-lg font-bold text-slate-900">Admin Authorization Active</h3>
+        <h3 className="text-lg font-bold text-slate-900">Admin Control Center Active</h3>
         <p className="text-xs text-slate-600 leading-relaxed">
-          You are viewing the **Admin Protected Route** (`/admin`). Express backend authorization middleware (`authorize('admin')`) has validated your administrative security credentials.
+          Express backend authorization middleware (`authorize('admin')`) has validated your administrative security credentials.
         </p>
 
         <div className="space-y-2 pt-2 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Phase 2 (Completed): Admin Identity & Access Control System</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Phase 7 (Upcoming): Admin platform control, User management, & Revenue dashboards</span>
+            <span>Phase 7 (Active): Platform analytics aggregation, revenue growth monitoring, & top hotel rankings</span>
           </div>
         </div>
       </div>

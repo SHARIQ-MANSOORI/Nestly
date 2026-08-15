@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble, Bell, CheckCircle2 } from 'lucide-react';
+import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble, Bell, CheckCircle2, BarChart3 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import notificationService from '../services/notificationService';
 
@@ -228,6 +228,14 @@ const Navbar = () => {
                     {(user?.role === 'manager' || user?.role === 'admin') && (
                       <>
                         <Link
+                          to="/manager/analytics"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100/60 font-bold"
+                        >
+                          <BarChart3 className="w-4 h-4 text-emerald-600" />
+                          Property Analytics
+                        </Link>
+                        <Link
                           to="/manager"
                           onClick={() => setProfileDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
@@ -247,14 +255,24 @@ const Navbar = () => {
                     )}
 
                     {user?.role === 'admin' && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                      >
-                        <Shield className="w-4 h-4 text-emerald-600" />
-                        Admin Dashboard
-                      </Link>
+                      <>
+                        <Link
+                          to="/admin/analytics"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                        >
+                          <BarChart3 className="w-4 h-4 text-emerald-600" />
+                          Platform Analytics
+                        </Link>
+                        <Link
+                          to="/admin"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                        >
+                          <Shield className="w-4 h-4 text-emerald-600" />
+                          Admin Dashboard
+                        </Link>
+                      </>
                     )}
 
                     <div className="border-t border-slate-100 pt-1">
@@ -363,6 +381,14 @@ const Navbar = () => {
 
                 {(user?.role === 'manager' || user?.role === 'admin') && (
                   <>
+                    <Link
+                      to="/manager/analytics"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-700 bg-emerald-50 font-bold"
+                    >
+                      <BarChart3 className="w-4 h-4 text-emerald-600" />
+                      Property Analytics
+                    </Link>
                     <Link
                       to="/manager"
                       onClick={() => setMobileMenuOpen(false)}

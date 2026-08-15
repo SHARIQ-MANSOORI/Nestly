@@ -39,12 +39,21 @@ Nestly is a modern, high-performance hotel discovery, management, and booking pl
 ### Phase 6: Notifications & Communication System
 - **Decoupled Notification Architecture**: Event-driven communication engine (`notificationService.js`, `emailService.js`, `notificationTemplates.js`). Isolates communication delivery from core booking/payment controllers, preparing the system for Phase 12 Redis + BullMQ queue workers.
 - **In-App Notification Engine ([Notification.js](file:///c:/Users/shari/OneDrive/Desktop/Nestly/server/models/Notification.js))**: Compound-indexed MongoDB model storing user-scoped notifications with read/unread tracking and deep link metadata.
-- **HTML Email Transport & Templates**: Clean HTML email compiler with Nodemailer transport (and built-in dev console logger fallback). Non-blocking wrapper ensures third-party email delivery failures never interrupt parent booking/payment transactions.
-- **User Notification Preferences ([User.js](file:///c:/Users/shari/OneDrive/Desktop/Nestly/server/models/User.js))**: Preference controls for email & in-app toggles (`emailBookingConfirmation`, `emailPaymentUpdates`, `emailCancellationUpdates`, `emailManagerBookingUpdates`, `inAppBookingUpdates`, `inAppPaymentUpdates`).
-- **Frontend Header Bell & Notification Center**:
-  - `Navbar`: Interactive Notification Bell `🔔` with unread count badge and quick dropdown preview.
-  - `NotificationsPage` (`/notifications`): Full notification history list, filters, "Mark All as Read", delete actions, and deep-link click navigation to `/bookings/:id`.
-  - `NotificationPreferencesPage` (`/settings/notifications`): User preferences configuration page.
+- **HTML Email Transport & Templates**: Clean HTML email compiler with Nodemailer transport. Non-blocking wrapper ensures third-party email delivery failures never interrupt parent booking/payment transactions.
+- **Frontend Header Bell & Notification Center**: `Navbar` bell badge with unread counter, `NotificationsPage` (`/notifications`), and `NotificationPreferencesPage` (`/settings/notifications`).
+
+### Phase 7: Analytics & Reporting System
+- **Server-Side MongoDB Aggregation Pipelines**: High-performance pipeline execution (`$match`, `$group`, `$lookup`, `$project`, `$facet`, `$sort`). Raw document arrays are never pulled into Node.js memory.
+- **Strict Manager Ownership Scoping**: Every manager analytics query strictly filters by properties owned by `req.user._id` (`Hotel.find({ owner: req.user._id })`).
+- **Industry-Standard Hospitality Formulas**:
+  - **Net Revenue**: `Gross Revenue - Refunds` (excludes failed/unpaid/cancelled).
+  - **Occupancy %**: `(Booked Room Nights / Available Room Nights) * 100`.
+  - **ADR (Average Daily Rate)**: `Room Revenue / Sold Room Nights`.
+  - **RevPAR (Revenue Per Available Room)**: `Room Revenue / Available Room Nights`.
+  - **Cancellation Rate %**, **Average Stay**, and **Average Booking Value**.
+- **Interactive Manager & Admin Dashboards**:
+  - `ManagerAnalyticsPage` (`/manager/analytics`): KPI Grid, Date Range Filter (`Today`, `7D`, `30D`, `This Month`, `Last Month`, `This Year`, `Custom`), Recharts Line & Bar charts for Revenue & Booking volume trends, Room Performance breakdown table, Upcoming Stays widget, and Recent Transactions widget.
+  - `AdminAnalyticsPage` (`/admin/analytics`): Platform-wide revenue trends, user metrics, and top-performing hotel rankings.
 
 ---
 
@@ -55,21 +64,18 @@ All accounts use password: `password123`
 | Role | Email | Permissions |
 | :--- | :--- | :--- |
 | **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, in-app & email notifications, booking cancellation |
-| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring, manager event notifications |
-| **Admin** | `admin@example.com` | Platform administration & full property access |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring, manager event notifications, property analytics dashboard |
+| **Admin** | `admin@example.com` | Platform administration, full property access, platform-wide analytics & hotel performance ranking |
 
 ---
 
 ## 🛠️ API Reference
 
-### Notification Endpoints
-- `GET /api/notifications` — Fetch authenticated user's notifications (`protect`)
-- `GET /api/notifications/unread-count` — Fetch unread count (`protect`)
-- `PATCH /api/notifications/:id/read` — Mark single notification as read (`protect`)
-- `PATCH /api/notifications/read-all` — Mark all user notifications as read (`protect`)
-- `DELETE /api/notifications/:id` — Delete notification (`protect`)
-- `GET /api/notifications/preferences` — Get notification preferences (`protect`)
-- `PUT /api/notifications/preferences` — Update notification preferences (`protect`)
+### Analytics Endpoints
+- `GET /api/analytics/manager/overview` — Fetch manager property analytics (`protect`, `authorize('manager', 'admin')`)
+  - Query params: `filter` (`today` | `7d` | `30d` | `this_month` | `last_month` | `this_year` | `custom`), `from`, `to`
+- `GET /api/analytics/admin/overview` — Fetch platform-wide admin analytics (`protect`, `authorize('admin')`)
+  - Query params: `filter`, `from`, `to`
 
 ---
 
@@ -104,4 +110,5 @@ node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
 node test_phase4.js   # Phase 4: Booking Engine & Concurrency Suite
 node test_phase5.js   # Phase 5: Payment Integration Security Suite
 node test_phase6.js   # Phase 6: Notifications & Communication Event Suite
+node test_phase7.js   # Phase 7: Analytics & Reporting Aggregation Suite
 ```

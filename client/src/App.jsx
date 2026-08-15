@@ -14,10 +14,12 @@ import BookingDetailsPage from './pages/BookingDetailsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
 import ManagerDashboardPage from './pages/ManagerDashboardPage';
+import ManagerAnalyticsPage from './pages/ManagerAnalyticsPage';
 import HotelFormPage from './pages/HotelFormPage';
 import ManagerHotelDetailsPage from './pages/ManagerHotelDetailsPage';
 import ManagerBookingsPage from './pages/ManagerBookingsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -94,6 +96,14 @@ function App() {
             }
           />
           <Route
+            path="manager/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <ManagerAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="manager/hotels"
             element={
               <ProtectedRoute allowedRoles={['manager', 'admin']}>
@@ -140,6 +150,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminAnalyticsPage />
               </ProtectedRoute>
             }
           />

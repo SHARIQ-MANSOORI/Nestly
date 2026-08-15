@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Hotel, MapPin, Edit, Settings, ArrowRight, ShieldCheck, Power } from 'lucide-react';
+import { Building2, Plus, Hotel, MapPin, Edit, Settings, ArrowRight, ShieldCheck, Power, BarChart3, BedDouble } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import hotelService from '../services/hotelService';
 import useAuth from '../hooks/useAuth';
@@ -60,13 +60,23 @@ const ManagerDashboardPage = () => {
           <p className="text-xs text-slate-500 mt-1">Logged in as {user?.name} ({user?.email})</p>
         </div>
 
-        <Link
-          to="/manager/hotels/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Property</span>
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to="/manager/analytics"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm"
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-400" />
+            <span>Property Analytics</span>
+          </Link>
+
+          <Link
+            to="/manager/hotels/new"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Property</span>
+          </Link>
+        </div>
       </div>
 
       {/* Overview Metrics */}
@@ -87,13 +97,19 @@ const ManagerDashboardPage = () => {
           <span className="text-xs text-slate-500 font-medium">Active Room Options</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
+        <Link
+          to="/manager/analytics"
+          className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-blue-400 transition-colors group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <BarChart3 className="w-5 h-5" />
           </div>
-          <span className="text-2xl font-bold text-slate-900 block">Secured</span>
-          <span className="text-xs text-slate-500 font-medium">Backend RBAC & Ownership Guard</span>
-        </div>
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold text-slate-900 block">Analytics</span>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+          </div>
+          <span className="text-xs text-slate-500 font-medium">Revenue, Occupancy % & ADR Reports</span>
+        </Link>
       </div>
 
       {/* Properties List */}
