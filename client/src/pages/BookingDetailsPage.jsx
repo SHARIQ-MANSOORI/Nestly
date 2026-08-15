@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Users, MapPin, Building2, ShieldCheck, CheckCircle2, AlertCircle, Printer, XCircle } from 'lucide-react';
+import { useParams, Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, Calendar, Users, MapPin, Building2, ShieldCheck, CheckCircle2, AlertCircle, Printer, XCircle, CreditCard, Lock } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import bookingService from '../services/bookingService';
+import PaymentModal from '../components/PaymentModal';
 
 const BookingDetailsPage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentSuccessBanner, setPaymentSuccessBanner] = useState(location.state?.paymentSuccess || false);
 
   const fetchBookingDetails = async () => {
     try {
@@ -42,6 +45,12 @@ const BookingDetailsPage = () => {
     }
   };
 
+  const handlePaymentSuccess = async () => {
+    setShowPaymentModal(false);
+    setPaymentSuccessBanner(true);
+    await fetchBookingDetails();
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-3">
@@ -66,10 +75,10 @@ const BookingDetailsPage = () => {
 
   const checkInFormatted = new Date(booking.checkIn).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const checkOutFormatted = new Date(booking.checkOut).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-
   const hotelImage = booking.hotel?.images && booking.hotel.images.length > 0 ? booking.hotel.images[0] : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800';
 
   const canCancel = booking.status === 'confirmed' && new Date(booking.checkIn) >= new Date().setHours(0, 0, 0, 0);
+  const isUnpaid = booking.paymentStatus === 'unpaid' && booking.status === 'confirmed';
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -93,6 +102,20 @@ const BookingDetailsPage = () => {
         </button>
       </div>
 
+      {/* Payment Success Banner */}
+      {paymentSuccessBanner && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs flex items-center justify-between gap-3 shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <strong className="block text-emerald-900 text-sm">Payment Successful!</strong>
+              <span className="text-emerald-700">Your transaction has been verified server-side and your reservation is confirmed.</span>
+            </div>
+          </div>
+          <button onClick={() => setPaymentSuccessBanner(false)} className="text-xs font-bold text-emerald-700 hover:underline">Dismiss</button>
+        </div>
+      )}
+
       {/* Main Receipt Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
         
@@ -111,8 +134,11 @@ const BookingDetailsPage = () => {
             }`}>
               {booking.status}
             </span>
-            <span className="text-[11px] font-semibold text-amber-300">
-              Payment Status: {booking.paymentStatus}
+            
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wider mt-1 ${
+              booking.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-900 border border-amber-300'
+            }`}>
+              Payment: {booking.paymentStatus}
             </span>
           </div>
         </div>
@@ -194,10 +220,27 @@ const BookingDetailsPage = () => {
             </div>
 
             <div className="flex justify-between font-extrabold text-slate-900 text-base pt-3 border-t border-slate-200">
-              <span>Total Price Paid / Due</span>
+              <span>Total Price {booking.paymentStatus === 'paid' ? 'Paid' : 'Due'}</span>
               <span className="text-blue-700">{formatPrice(booking.totalAmount)}</span>
             </div>
           </div>
+
+          {/* Pay Now CTA for Unpaid Booking */}
+          {isUnpaid && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 mt-4">
+              <div>
+                <strong className="block font-bold text-amber-900 text-sm">Payment Pending</strong>
+                <span className="text-[11px] text-amber-800">Complete your online payment now to finalize your stay receipt.</span>
+              </div>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Pay {formatPrice(booking.totalAmount)} Now</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Actions Footer */}
@@ -214,6 +257,16 @@ const BookingDetailsPage = () => {
         )}
 
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && booking && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          booking={booking}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
 
     </div>
   );

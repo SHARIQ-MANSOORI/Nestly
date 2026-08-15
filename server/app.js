@@ -8,6 +8,7 @@ const hotelRoutes = require('./routes/hotelRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const authRoutes = require('./routes/authRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 
@@ -24,8 +25,12 @@ app.use(cors({
   credentials: true,
 }));
 
-// Body Parser Middleware
-app.use(express.json());
+// Body Parser Middleware with raw body buffer for Webhook Verification
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Health Check API
@@ -42,6 +47,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // 404 Route Handler
 app.use('*', (req, res) => {

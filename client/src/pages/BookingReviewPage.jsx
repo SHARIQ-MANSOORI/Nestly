@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Users, ShieldCheck, CheckCircle2, AlertCircle, CreditCard, Building2, BedDouble } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, ShieldCheck, CheckCircle2, AlertCircle, CreditCard, Building2, Lock } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import bookingService from '../services/bookingService';
+import PaymentModal from '../components/PaymentModal';
 
 const BookingReviewPage = () => {
   const location = useLocation();
@@ -13,6 +14,8 @@ const BookingReviewPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [createdBooking, setCreatedBooking] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   if (!hotel || !room || !checkIn || !checkOut || !pricing) {
     return (
@@ -27,30 +30,48 @@ const BookingReviewPage = () => {
     );
   }
 
-  const handleConfirmBooking = async () => {
+  const handleConfirmAndPay = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const payload = {
-        hotelId: hotel._id,
-        roomId: room._id,
-        checkIn,
-        checkOut,
-        roomsBooked: Number(roomsBooked) || 1,
-        guests: Number(guests) || 1,
-      };
+      let bookingRecord = createdBooking;
 
-      const res = await bookingService.createBooking(payload);
-      const createdBooking = res.data;
+      if (!bookingRecord) {
+        const payload = {
+          hotelId: hotel._id,
+          roomId: room._id,
+          checkIn,
+          checkOut,
+          roomsBooked: Number(roomsBooked) || 1,
+          guests: Number(guests) || 1,
+        };
 
-      // Navigate to receipt page
-      navigate(`/bookings/${createdBooking._id}`, { replace: true });
+        const res = await bookingService.createBooking(payload);
+        bookingRecord = res.data;
+        setCreatedBooking(bookingRecord);
+      }
+
+      // Open Payment Modal
+      setShowPaymentModal(true);
     } catch (err) {
       setError(err.message || 'Failed to complete reservation. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentSuccess = (result) => {
+    setShowPaymentModal(false);
+    const targetBookingId = createdBooking?._id || result?.data?.booking?._id;
+    navigate(`/bookings/${targetBookingId}`, {
+      replace: true,
+      state: { paymentSuccess: true },
+    });
+  };
+
+  const handlePaymentFailure = (err) => {
+    setError(err.message || 'Payment attempt failed. Your booking remains created as unpaid.');
   };
 
   const hotelImage = hotel.images && hotel.images.length > 0 ? hotel.images[0] : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800';
@@ -68,8 +89,8 @@ const BookingReviewPage = () => {
           Back to Hotel Details
         </Link>
 
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Review Your Reservation</h1>
-        <p className="text-xs text-slate-500">Verify dates, guest details, and rate calculations before confirming</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Review & Pay Reservation</h1>
+        <p className="text-xs text-slate-500">Verify dates, guest details, and rate calculations before initiating online payment</p>
       </div>
 
       {/* Error Alert */}
@@ -149,17 +170,17 @@ const BookingReviewPage = () => {
             </div>
 
             <div className="flex justify-between font-extrabold text-slate-900 text-base pt-3 border-t border-slate-200">
-              <span>Total Reservation Amount</span>
+              <span>Total Payable Amount</span>
               <span className="text-blue-700">{formatPrice(pricing.totalAmount)}</span>
             </div>
           </div>
 
-          {/* Payment Status Notice */}
-          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-3">
-            <CreditCard className="w-5 h-5 text-blue-600 shrink-0" />
+          {/* Payment Guarantee Notice */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
-              <span className="font-bold block">Payment Status: Unpaid</span>
-              <span className="text-[11px] text-blue-700">Reservation will be confirmed immediately. Payment gateway integration will be active in Phase 5.</span>
+              <span className="font-bold block">Instant Instant Booking & Payment Protection</span>
+              <span className="text-[11px] text-emerald-700">Your total amount is encrypted and verified server-side. Zero price manipulation.</span>
             </div>
           </div>
         </div>
@@ -176,14 +197,26 @@ const BookingReviewPage = () => {
           <button
             type="button"
             disabled={loading}
-            onClick={handleConfirmBooking}
-            className="px-8 py-3 bg-slate-900 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-colors shadow-md disabled:opacity-75"
+            onClick={handleConfirmAndPay}
+            className="px-8 py-3 bg-slate-900 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-colors shadow-md flex items-center gap-2 disabled:opacity-75"
           >
-            {loading ? 'Securing Reservation...' : 'Confirm & Reserve Room'}
+            <Lock className="w-4 h-4" />
+            <span>{loading ? 'Processing...' : `Confirm & Pay ${formatPrice(pricing.totalAmount)}`}</span>
           </button>
         </div>
 
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && createdBooking && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          booking={createdBooking}
+          onSuccess={handlePaymentSuccess}
+          onFailure={handlePaymentFailure}
+        />
+      )}
 
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, Building2, ArrowLeft, BedDouble, Search, CheckCircle2, XCircle } from 'lucide-react';
+import { Calendar, Users, Building2, ArrowLeft, BedDouble, Search, CheckCircle2, XCircle, CreditCard } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import bookingService from '../services/bookingService';
 
@@ -34,13 +34,16 @@ const ManagerBookingsPage = () => {
       b.bookingReference?.toLowerCase().includes(term) ||
       b.user?.name?.toLowerCase().includes(term) ||
       b.hotel?.name?.toLowerCase().includes(term) ||
-      b.room?.name?.toLowerCase().includes(term)
+      b.room?.name?.toLowerCase().includes(term) ||
+      b.paymentStatus?.toLowerCase().includes(term)
     );
   });
 
   const totalValue = bookings
     .filter(b => b.status === 'confirmed')
     .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+
+  const paidCount = bookings.filter(b => b.paymentStatus === 'paid').length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -60,8 +63,8 @@ const ManagerBookingsPage = () => {
             <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-md border border-purple-100 uppercase tracking-wider">
               Manager Reservation Portal
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">Property Reservations</h1>
-            <p className="text-xs text-slate-500">Monitor guest bookings across all your listed properties</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">Property Reservations & Payments</h1>
+            <p className="text-xs text-slate-500">Monitor guest bookings and online payment statuses across your properties</p>
           </div>
         </div>
       </div>
@@ -75,17 +78,17 @@ const ManagerBookingsPage = () => {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Confirmed Reservations</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Online Paid Reservations</span>
           <span className="text-2xl font-bold text-emerald-600 block">
-            {bookings.filter(b => b.status === 'confirmed').length}
+            {paidCount} / {bookings.length}
           </span>
-          <span className="text-[11px] text-slate-500">Active inventory locks</span>
+          <span className="text-[11px] text-slate-500">Verified server transactions</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Confirmed Gross Value</span>
           <span className="text-2xl font-bold text-slate-900 block">{formatPrice(totalValue)}</span>
-          <span className="text-[11px] text-slate-500">Calculated before taxes & fees</span>
+          <span className="text-[11px] text-slate-500">Includes taxes & service fees</span>
         </div>
       </div>
 
@@ -96,7 +99,7 @@ const ManagerBookingsPage = () => {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Filter by booking reference, guest name, property, or room..."
+          placeholder="Filter by booking reference, guest name, property, or payment status..."
           className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
         />
       </div>
@@ -125,8 +128,8 @@ const ManagerBookingsPage = () => {
                   <th className="py-3 px-4">Guest</th>
                   <th className="py-3 px-4">Property & Room</th>
                   <th className="py-3 px-4">Dates</th>
-                  <th className="py-3 px-4">Units</th>
                   <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Payment</th>
                   <th className="py-3 px-4 text-right">Status</th>
                 </tr>
               </thead>
@@ -154,12 +157,15 @@ const ManagerBookingsPage = () => {
                         <span>{checkInFmt} → {checkOutFmt}</span>
                         <span className="text-[10px] text-slate-400 block">({b.numberOfNights} night{b.numberOfNights > 1 ? 's' : ''})</span>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span>{b.roomsBooked} room(s)</span>
-                        <span className="text-[10px] text-slate-400 block">{b.guests} guest(s)</span>
-                      </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         {formatPrice(b.totalAmount)}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                          b.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {b.paymentStatus || 'unpaid'}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${

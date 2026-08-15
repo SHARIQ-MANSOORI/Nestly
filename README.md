@@ -28,15 +28,22 @@ Nestly is a modern, high-performance hotel discovery, management, and booking pl
 - Public Integration: Active hotels and available rooms automatically appear in public search and discovery (`/hotels`).
 
 ### Phase 4: Booking Engine & Double-Booking Prevention
-- **Date Overlap Algorithm**: Standard half-open date interval overlap query `(existingCheckIn < requestedCheckOut AND existingCheckOut > requestedCheckIn)` checking active bookings (`confirmed`, `pending`).
+- **Date Overlap Algorithm**: Standard half-open date interval overlap query `(existingCheckIn < requestedCheckOut AND existingCheckOut > requestedCheckOut)` checking active bookings (`confirmed`, `pending`).
 - **Double-Booking & Concurrency Protection**: Per-room async mutex lock (`acquireRoomLock`) combined with MongoDB Session Transaction isolation, guaranteeing serial evaluation of room inventory during reservation creation. If inventory is depleted, conflicting requests return `409 Conflict`.
 - **Backend Pricing & Snapshot Engine**: Pure server-side pricing calculation (`subtotal = pricePerNight * nights * roomsBooked`, `taxes = 12%`). Permanent price snapshots are recorded on `Booking` documents, protecting historical reservations from future room rate alterations.
 - **Booking Reference Generator**: Generates human-readable unique reference codes (e.g. `NST-2026-X8K9L2`).
-- **Customer & Manager UI Flows**:
-  - `AvailabilityPicker` widget on `HotelDetailsPage`: Interactive check-in/out date selection, live availability query, and itemized rate calculation.
-  - `BookingReviewPage` (`/bookings/review`): Reservation confirmation review screen.
-  - `CustomerBookingsPage` (`/bookings`) & `BookingDetailsPage` (`/bookings/:id`): Customer reservation history and receipt view with single-click cancellation functionality.
-  - `ManagerBookingsPage` (`/manager/bookings`): Property reservation monitoring view for managers.
+- **Customer & Manager UI Flows**: `AvailabilityPicker` widget on `HotelDetailsPage`, `BookingReviewPage` (`/bookings/review`), `CustomerBookingsPage` (`/bookings`), `BookingDetailsPage` (`/bookings/:id`), and `ManagerBookingsPage` (`/manager/bookings`).
+
+### Phase 5: Payment Integration (Razorpay Gateway Architecture)
+- **Payment Provider Abstraction**: Dedicated payment manager (`paymentService.js`) and gateway driver (`razorpayProvider.js`). Decouples business logic from provider details, supporting Razorpay by default and enabling future gateway additions (e.g., Stripe).
+- **Server-Side Amount Authority**: `POST /api/payments/create-order` accepts only `bookingId`. Reads `totalAmount` strictly from database `Booking` document and converts to subunits (`paise`). Client-submitted price overrides are strictly ignored.
+- **Cryptographic HMAC-SHA256 Signature Verification**: `POST /api/payments/verify` computes `HMAC-SHA256(razorpayOrderId + "|" + razorpayPaymentId, secret)` and compares against the payload. Forged signatures return `400 Bad Request`.
+- **Webhook Listener Architecture**: `POST /api/payments/webhook` verifies `X-Razorpay-Signature` with `RAZORPAY_WEBHOOK_SECRET` and handles `payment.captured` & `payment.failed` events asynchronously.
+- **Idempotency & Duplicate Guard**: Re-sending payment verification or webhook triggers checks `payment.status === 'paid'` and returns existing payment records without duplicate processing or double-charging.
+- **Customer & Manager Payment UI**:
+  - `PaymentModal`: Razorpay Checkout integration with built-in test-mode sandbox simulation.
+  - `BookingDetailsPage` & `CustomerBookingsPage`: `Payment Status: Paid` emerald badge and `Pay Now` CTA for unpaid reservations.
+  - `ManagerBookingsPage`: Transaction visibility and payment status tracking across owned properties.
 
 ---
 
@@ -46,8 +53,8 @@ All accounts use password: `password123`
 
 | Role | Email | Permissions |
 | :--- | :--- | :--- |
-| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, booking cancellation |
-| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring |
+| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, booking cancellation |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring & payment visibility |
 | **Admin** | `admin@example.com` | Platform administration & full property access |
 
 ---
@@ -59,24 +66,12 @@ All accounts use password: `password123`
 - `POST /api/auth/login` — User authentication & HTTP-only cookie issuance
 - `POST /api/auth/logout` — Invalidate session cookie
 - `GET /api/auth/me` — Fetch authenticated user profile
-- `PUT /api/auth/profile` — Update name & avatar
-- `PUT /api/auth/change-password` — Change password
 
-### Hotel Endpoints
+### Hotel & Room Endpoints
 - `GET /api/hotels` — Public hotel discovery (Active hotels only)
 - `GET /api/hotels/:id` — Public hotel details & available rooms
 - `GET /api/hotels/manager/my-hotels` — Manager owned properties list (`protect`, `authorize('manager', 'admin')`)
 - `POST /api/hotels` — Create hotel property (`protect`, `authorize('manager', 'admin')`)
-- `PUT /api/hotels/:id` — Edit hotel property (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
-- `DELETE /api/hotels/:id` — Soft deactivate hotel (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
-
-### Room & Availability Endpoints
-- `GET /api/hotels/:hotelId/rooms` — Public room options
-- `GET /api/rooms/:id` — Public room details
-- `GET /api/hotels/:hotelId/rooms/:roomId/availability` — Public availability check & live rate calculation
-- `POST /api/hotels/:hotelId/rooms` — Add room package (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
-- `PUT /api/rooms/:id` — Update room package (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
-- `DELETE /api/rooms/:id` — Soft deactivate room (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
 
 ### Booking Endpoints
 - `POST /api/bookings/quote` — Public server price quote calculation
@@ -85,6 +80,13 @@ All accounts use password: `password123`
 - `GET /api/bookings/:id` — View reservation receipt details (`protect`)
 - `POST /api/bookings/:id/cancel` — Cancel reservation & release inventory (`protect`)
 - `GET /api/bookings/manager/all` — Manager property reservations (`protect`, `authorize('manager', 'admin')`)
+
+### Payment Endpoints
+- `POST /api/payments/create-order` — Create gateway order using server amount authority (`protect`)
+- `POST /api/payments/verify` — Verify HMAC-SHA256 signature and mark reservation `paid` (`protect`)
+- `POST /api/payments/webhook` — Razorpay webhook listener (Public, verified via signature header)
+- `GET /api/payments/my` — Customer payment history (`protect`)
+- `GET /api/payments/manager/all` — Manager payment overview across owned properties (`protect`, `authorize('manager', 'admin')`)
 
 ---
 
@@ -117,4 +119,5 @@ node test_api.js      # Phase 1: Discovery & Filter API Suite
 node test_auth.js     # Phase 2: Auth, JWT, Cookie & RBAC Suite
 node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
 node test_phase4.js   # Phase 4: Booking Engine & Concurrency Double-Booking Suite
+node test_phase5.js   # Phase 5: Payment Integration Security & Verification Suite
 ```
