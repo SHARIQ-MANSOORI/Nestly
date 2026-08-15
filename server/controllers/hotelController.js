@@ -1,5 +1,7 @@
+const xss = require('xss');
 const Hotel = require('../models/Hotel');
 const Room = require('../models/Room');
+const auditService = require('../services/auditService');
 
 // Helper function to update hotel startingPrice based on active rooms
 const updateHotelStartingPrice = async (hotelId) => {
@@ -30,14 +32,17 @@ const getHotels = async (req, res, next) => {
     // By default, public discovery lists active hotels only
     let query = { status: status || 'active' };
 
-    // Filter by city / location
+    // Filter by city / location (Safely escaped regex)
     if (location && location.trim() !== '') {
-      query.city = { $regex: new RegExp(location.trim(), 'i') };
+      const sanitizedLocation = xss(location.trim());
+      query.city = { $regex: new RegExp(sanitizedLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') };
     }
 
     // Keyword Search (Name, City, Location, Description)
     if (search && search.trim() !== '') {
-      const searchRegex = new RegExp(search.trim(), 'i');
+      const sanitizedSearch = xss(search.trim());
+      const escapedSearch = sanitizedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
       query.$or = [
         { name: searchRegex },
         { city: searchRegex },
@@ -49,12 +54,12 @@ const getHotels = async (req, res, next) => {
     // Price Filtering
     if (minPrice || maxPrice) {
       query.startingPrice = {};
-      if (minPrice) query.startingPrice.$gte = Number(minPrice);
-      if (maxPrice) query.startingPrice.$lte = Number(maxPrice);
+      if (minPrice && !isNaN(Number(minPrice))) query.startingPrice.$gte = Number(minPrice);
+      if (maxPrice && !isNaN(Number(maxPrice))) query.startingPrice.$lte = Number(maxPrice);
     }
 
     // Rating Filtering
-    if (minRating) {
+    if (minRating && !isNaN(Number(minRating))) {
       query.rating = { $gte: Number(minRating) };
     }
 
@@ -153,7 +158,7 @@ const getManagerHotels = async (req, res, next) => {
   }
 };
 
-// @desc    Create new hotel property (Manager Only)
+// @desc    Create new hotel property (Manager Only, XSS Sanitized)
 // @route   POST /api/hotels
 // @access  Private (Manager / Admin)
 const createHotel = async (req, res, next) => {
@@ -177,22 +182,36 @@ const createHotel = async (req, res, next) => {
       });
     }
 
-    // Security Rule: Automatically assign owner from authenticated user token
+    // Security Rule: Automatically assign owner from authenticated user token and XSS sanitize input
+    const sanitizedAmenities = Array.isArray(amenities)
+      ? amenities.map(a => xss(String(a).trim()))
+      : [];
+
     const hotelData = {
-      name: name.trim(),
-      description,
-      location: location.trim(),
-      city: city.trim(),
-      country: country ? country.trim() : 'India',
-      addressDetails: addressDetails || { address: location, city, country: country || 'India' },
+      name: xss(name.trim()),
+      description: xss(description.trim()),
+      location: xss(location.trim()),
+      city: xss(city.trim()),
+      country: country ? xss(country.trim()) : 'India',
+      addressDetails: addressDetails || { address: xss(location), city: xss(city), country: country ? xss(country) : 'India' },
       images: images && images.length > 0 ? images : ['https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=1000'],
-      amenities: amenities || [],
+      amenities: sanitizedAmenities,
       owner: req.user._id,
       status: status || 'active',
       startingPrice: 0,
     };
 
     const hotel = await Hotel.create(hotelData);
+
+    await auditService.logEvent({
+      actor: req.user._id,
+      action: 'HOTEL_CREATED',
+      resourceType: 'Hotel',
+      resourceId: hotel._id,
+      status: 'success',
+      req,
+      metadata: { hotelName: hotel.name, city: hotel.city },
+    });
 
     res.status(201).json({
       success: true,
@@ -204,7 +223,7 @@ const createHotel = async (req, res, next) => {
   }
 };
 
-// @desc    Update hotel property (Manager Owner / Admin)
+// @desc    Update hotel property (Manager Owner / Admin, XSS Sanitized)
 // @route   PUT /api/hotels/:id
 // @access  Private (Manager Owner / Admin)
 const updateHotel = async (req, res, next) => {
@@ -222,14 +241,14 @@ const updateHotel = async (req, res, next) => {
     } = req.body;
 
     const fieldsToUpdate = {};
-    if (name) fieldsToUpdate.name = name.trim();
-    if (description) fieldsToUpdate.description = description;
-    if (location) fieldsToUpdate.location = location.trim();
-    if (city) fieldsToUpdate.city = city.trim();
-    if (country) fieldsToUpdate.country = country.trim();
+    if (name) fieldsToUpdate.name = xss(name.trim());
+    if (description) fieldsToUpdate.description = xss(description.trim());
+    if (location) fieldsToUpdate.location = xss(location.trim());
+    if (city) fieldsToUpdate.city = xss(city.trim());
+    if (country) fieldsToUpdate.country = xss(country.trim());
     if (addressDetails) fieldsToUpdate.addressDetails = addressDetails;
     if (images && images.length > 0) fieldsToUpdate.images = images;
-    if (amenities) fieldsToUpdate.amenities = amenities;
+    if (amenities && Array.isArray(amenities)) fieldsToUpdate.amenities = amenities.map(a => xss(String(a).trim()));
     if (status) fieldsToUpdate.status = status;
 
     const updatedHotel = await Hotel.findByIdAndUpdate(
@@ -244,6 +263,15 @@ const updateHotel = async (req, res, next) => {
     }
 
     await updateHotelStartingPrice(updatedHotel._id);
+
+    await auditService.logEvent({
+      actor: req.user._id,
+      action: 'HOTEL_UPDATED',
+      resourceType: 'Hotel',
+      resourceId: updatedHotel._id,
+      status: 'success',
+      req,
+    });
 
     res.status(200).json({
       success: true,
@@ -268,6 +296,15 @@ const deleteHotel = async (req, res, next) => {
 
     // Soft deactivate associated rooms
     await Room.updateMany({ hotel: hotel._id }, { status: 'inactive' });
+
+    await auditService.logEvent({
+      actor: req.user._id,
+      action: 'HOTEL_DELETED',
+      resourceType: 'Hotel',
+      resourceId: hotel._id,
+      status: 'success',
+      req,
+    });
 
     res.status(200).json({
       success: true,

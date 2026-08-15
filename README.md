@@ -37,23 +37,32 @@ Nestly is a modern, high-performance hotel discovery, management, and booking pl
 - **Webhook Listener Architecture**: `POST /api/payments/webhook` verifies `X-Razorpay-Signature` with `RAZORPAY_WEBHOOK_SECRET` and handles `payment.captured` & `payment.failed` events asynchronously.
 
 ### Phase 6: Notifications & Communication System
-- **Decoupled Notification Architecture**: Event-driven communication engine (`notificationService.js`, `emailService.js`, `notificationTemplates.js`). Isolates communication delivery from core booking/payment controllers, preparing the system for Phase 12 Redis + BullMQ queue workers.
-- **In-App Notification Engine ([Notification.js](file:///c:/Users/shari/OneDrive/Desktop/Nestly/server/models/Notification.js))**: Compound-indexed MongoDB model storing user-scoped notifications with read/unread tracking and deep link metadata.
+- **Decoupled Notification Architecture**: Event-driven communication engine (`notificationService.js`, `emailService.js`, `notificationTemplates.js`). Isolates communication delivery from core booking/payment controllers.
+- **In-App Notification Engine**: Compound-indexed MongoDB model storing user-scoped notifications with read/unread tracking and deep link metadata.
 - **HTML Email Transport & Templates**: Clean HTML email compiler with Nodemailer transport. Non-blocking wrapper ensures third-party email delivery failures never interrupt parent booking/payment transactions.
 - **Frontend Header Bell & Notification Center**: `Navbar` bell badge with unread counter, `NotificationsPage` (`/notifications`), and `NotificationPreferencesPage` (`/settings/notifications`).
 
 ### Phase 7: Analytics & Reporting System
 - **Server-Side MongoDB Aggregation Pipelines**: High-performance pipeline execution (`$match`, `$group`, `$lookup`, `$project`, `$facet`, `$sort`). Raw document arrays are never pulled into Node.js memory.
 - **Strict Manager Ownership Scoping**: Every manager analytics query strictly filters by properties owned by `req.user._id` (`Hotel.find({ owner: req.user._id })`).
-- **Industry-Standard Hospitality Formulas**:
-  - **Net Revenue**: `Gross Revenue - Refunds` (excludes failed/unpaid/cancelled).
-  - **Occupancy %**: `(Booked Room Nights / Available Room Nights) * 100`.
-  - **ADR (Average Daily Rate)**: `Room Revenue / Sold Room Nights`.
-  - **RevPAR (Revenue Per Available Room)**: `Room Revenue / Available Room Nights`.
-  - **Cancellation Rate %**, **Average Stay**, and **Average Booking Value**.
-- **Interactive Manager & Admin Dashboards**:
-  - `ManagerAnalyticsPage` (`/manager/analytics`): KPI Grid, Date Range Filter (`Today`, `7D`, `30D`, `This Month`, `Last Month`, `This Year`, `Custom`), Recharts Line & Bar charts for Revenue & Booking volume trends, Room Performance breakdown table, Upcoming Stays widget, and Recent Transactions widget.
-  - `AdminAnalyticsPage` (`/admin/analytics`): Platform-wide revenue trends, user metrics, and top-performing hotel rankings.
+- **Industry-Standard Hospitality Formulas**: Net Revenue, Occupancy %, ADR (Average Daily Rate), RevPAR (Revenue Per Available Room), Cancellation Rate %, Average Stay, and Average Booking Value.
+- **Interactive Manager & Admin Dashboards**: `ManagerAnalyticsPage` (`/manager/analytics`) and `AdminAnalyticsPage` (`/admin/analytics`).
+
+### Phase 8: Reviews, Ratings & Reputation System
+- **Server-Side Verified Stay Eligibility Engine**: Verified stay checks (`reviewEligibilityService.js`) ensuring only guests with completed stays (`checkOut <= now`) can review a hotel.
+- **Database Models & Constraints**: `Review` model with unique compound index `{ booking: 1 }` enforcing one review per reservation. `ReviewReport` model for user abuse reporting.
+- **Server-Side Aggregation Engine**: `ratingService.js` automatically recalculates hotel average ratings, 5-star distribution breakdowns, and category ratings (`cleanliness`, `location`, `service`, `value`).
+- **Manager Responses & Admin Moderation**: Property managers post official responses (`/manager/reviews`), and administrators moderate flagged content (`/admin/moderation`).
+
+### Phase 9: Security Hardening & Production Security
+- **NoSQL Injection Prevention**: `express-mongo-sanitize` middleware recursively strips `$` and `.` operators from `req.body`, `req.query`, and `req.params`. Mongoose ObjectIds are strictly validated (`validateRequest.js`).
+- **Tiered Rate Limiting (`express-rate-limit`)**: Protects auth endpoints (15 req/15 min), sensitive APIs (60 req/15 min), and public discovery APIs (300 req/15 min) against brute-force, bot spamming, and DoS attacks.
+- **HTTP Security Headers & CORS**: Helmet CSP configured for Razorpay, Google Fonts, and Cloudinary. CORS origin whitelisting enforces environment-based origins.
+- **Authentication & Mass Assignment Hardening**: Server-side password policy (min 8 chars, weak password dictionary check). Registration forces `role: 'customer'`. Profile updates prevent role escalation.
+- **XSS Sanitization**: User-generated review comments, titles, hotel descriptions, and manager responses sanitized with `xss` library before database persistence.
+- **Audit Logging System**: `AuditLog` model and `auditService` record login attempts, password changes, role escalation attempts, hotel modifications, payments, and review moderation. Admin portal available at `GET /api/admin/audit-logs`.
+- **Production Error Sanitization**: Central error handler suppresses internal stack traces in production (`NODE_ENV === 'production'`).
+- **Comprehensive Documentation**: Complete production security policy and incident response procedures detailed in `SECURITY.md`.
 
 ---
 
@@ -63,38 +72,9 @@ All accounts use password: `password123`
 
 | Role | Email | Permissions |
 | :--- | :--- | :--- |
-| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, in-app & email notifications, booking cancellation |
-| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring, manager event notifications, property analytics dashboard |
-| **Admin** | `admin@example.com` | Platform administration, full property access, platform-wide analytics & hotel performance ranking |
-
----
-
-## 🛠️ API Reference
-
-### Analytics Endpoints
-- `GET /api/analytics/manager/overview` — Fetch manager property analytics (`protect`, `authorize('manager', 'admin')`)
-  - Query params: `filter` (`today` | `7d` | `30d` | `this_month` | `last_month` | `this_year` | `custom`), `from`, `to`
-- `GET /api/analytics/admin/overview` — Fetch platform-wide admin analytics (`protect`, `authorize('admin')`)
-  - Query params: `filter`, `from`, `to`
-
----
-
-## 💻 Quick Start & Running Locally
-
-### 1. Start Express Backend
-```bash
-cd server
-npm install
-npm run seed     # Populate database with demo accounts, hotels, and rooms
-npm start        # Launches backend server on http://localhost:5000
-```
-
-### 2. Start Vite Frontend
-```bash
-cd client
-npm install
-npm run dev      # Launches Vite frontend dev server on http://localhost:5173
-```
+| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, in-app & email notifications, verified stay reviews, customer review portal |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring, property analytics dashboard, property review responses |
+| **Admin** | `admin@example.com` | Platform administration, full property access, platform-wide analytics & hotel performance ranking, review moderation queue, security audit log inspection |
 
 ---
 
@@ -111,4 +91,6 @@ node test_phase4.js   # Phase 4: Booking Engine & Concurrency Suite
 node test_phase5.js   # Phase 5: Payment Integration Security Suite
 node test_phase6.js   # Phase 6: Notifications & Communication Event Suite
 node test_phase7.js   # Phase 7: Analytics & Reporting Aggregation Suite
+node test_phase8.js   # Phase 8: Reviews, Ratings & Reputation Suite
+node test_security.js # Phase 9: Security Hardening & Penetration Testing Suite
 ```

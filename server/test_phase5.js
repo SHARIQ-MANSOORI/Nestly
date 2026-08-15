@@ -68,6 +68,14 @@ const runPhase5Tests = async () => {
 
   // 3. Create test reservation
   console.log('\n[Test 2] Customer creates reservation for property:', testHotel.name);
+  const futureCheckIn = new Date();
+  futureCheckIn.setDate(futureCheckIn.getDate() + Math.floor(Math.random() * 50) + 10);
+  const futureCheckOut = new Date(futureCheckIn);
+  futureCheckOut.setDate(futureCheckOut.getDate() + 3);
+
+  const checkInStr = futureCheckIn.toISOString().split('T')[0];
+  const checkOutStr = futureCheckOut.toISOString().split('T')[0];
+
   const bookingRes = await makeRequest({
     hostname: 'localhost',
     port: 5000,
@@ -77,12 +85,16 @@ const runPhase5Tests = async () => {
   }, {
     hotelId: testHotel._id,
     roomId: testRoom._id,
-    checkIn: '2026-11-10',
-    checkOut: '2026-11-13',
+    checkIn: checkInStr,
+    checkOut: checkOutStr,
     roomsBooked: 1,
     guests: 2,
   });
   const testBooking = bookingRes.body.data;
+  if (!testBooking) {
+    console.error('Booking Creation Failed:', bookingRes.body);
+    throw new Error(`Booking creation failed with status ${bookingRes.status}: ${JSON.stringify(bookingRes.body)}`);
+  }
   console.log('Booking Created Status:', bookingRes.status, 'Ref:', testBooking.bookingReference, 'Total Amount:', testBooking.totalAmount);
 
   // 4. Create Payment Order API (Server-Side Amount Authority)

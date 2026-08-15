@@ -87,6 +87,14 @@ const runPhase7Tests = async () => {
   });
   const testRoom = hotelDetailRes.body.data.rooms[0];
 
+  const futIn = new Date();
+  futIn.setDate(futIn.getDate() + Math.floor(Math.random() * 60) + 20);
+  const futOut = new Date(futIn);
+  futOut.setDate(futOut.getDate() + 3);
+
+  const checkInStr = futIn.toISOString().split('T')[0];
+  const checkOutStr = futOut.toISOString().split('T')[0];
+
   const bookingRes = await makeRequest({
     hostname: 'localhost',
     port: 5000,
@@ -96,8 +104,8 @@ const runPhase7Tests = async () => {
   }, {
     hotelId: testHotel._id,
     roomId: testRoom._id,
-    checkIn: '2026-12-01',
-    checkOut: '2026-12-04',
+    checkIn: checkInStr,
+    checkOut: checkOutStr,
     roomsBooked: 1,
     guests: 2,
   });

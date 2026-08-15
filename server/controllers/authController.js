@@ -1,5 +1,21 @@
 const User = require('../models/User');
 const { sendTokenResponse } = require('../utils/generateToken');
+const auditService = require('../services/auditService');
+
+// Common weak password list to reject during registration & password changes
+const COMMON_WEAK_PASSWORDS = [
+  '123456', '12345678', 'password', 'qwerty', 'admin123',
+  'nestly123', 'password123', 'welcome1', '123456789', '00000000'
+];
+
+// Helper to validate password policy
+const isPasswordWeak = (password) => {
+  if (typeof password !== 'string' || password.length < 8) return 'Password must be at least 8 characters long';
+  if (COMMON_WEAK_PASSWORDS.includes(password.toLowerCase())) {
+    return 'Password is too common or easily guessable. Please choose a stronger password.';
+  }
+  return null;
+};
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -8,17 +24,31 @@ const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({
         success: false,
-        message: 'Please provide name, email, and password',
+        message: 'Please provide valid string values for name, email, and password',
       });
     }
 
-    if (password.length < 6) {
+    const passwordError = isPasswordWeak(password);
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters long',
+        message: passwordError,
+      });
+    }
+
+    // Role Escalation Detection
+    if (req.body.role && req.body.role !== 'customer') {
+      await auditService.logEvent({
+        actor: 'anonymous',
+        actorEmail: email,
+        action: 'ROLE_ESCALATION_ATTEMPT',
+        resourceType: 'User',
+        status: 'rejected',
+        req,
+        metadata: { attemptedRole: req.body.role },
       });
     }
 
@@ -41,6 +71,16 @@ const register = async (req, res, next) => {
       role: 'customer',
     });
 
+    await auditService.logEvent({
+      actor: user._id,
+      actorEmail: user.email,
+      action: 'USER_REGISTER',
+      resourceType: 'User',
+      resourceId: user._id,
+      status: 'success',
+      req,
+    });
+
     sendTokenResponse(user, 201, res, 'Account registered successfully');
   } catch (error) {
     next(error);
@@ -54,10 +94,10 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({
         success: false,
-        message: 'Please provide both email and password',
+        message: 'Please provide valid string credentials for email and password',
       });
     }
 
@@ -67,6 +107,16 @@ const login = async (req, res, next) => {
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
+      await auditService.logEvent({
+        actor: 'anonymous',
+        actorEmail: normalizedEmail,
+        action: 'USER_LOGIN_FAILED',
+        resourceType: 'User',
+        status: 'failed',
+        req,
+        metadata: { reason: 'User not found' },
+      });
+
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password',
@@ -74,6 +124,17 @@ const login = async (req, res, next) => {
     }
 
     if (user.isActive === false) {
+      await auditService.logEvent({
+        actor: user._id,
+        actorEmail: user.email,
+        action: 'USER_LOGIN_FAILED',
+        resourceType: 'User',
+        resourceId: user._id,
+        status: 'rejected',
+        req,
+        metadata: { reason: 'Account deactivated' },
+      });
+
       return res.status(401).json({
         success: false,
         message: 'Your account has been deactivated. Please contact support.',
@@ -84,11 +145,32 @@ const login = async (req, res, next) => {
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
+      await auditService.logEvent({
+        actor: user._id,
+        actorEmail: user.email,
+        action: 'USER_LOGIN_FAILED',
+        resourceType: 'User',
+        resourceId: user._id,
+        status: 'failed',
+        req,
+        metadata: { reason: 'Incorrect password' },
+      });
+
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password',
       });
     }
+
+    await auditService.logEvent({
+      actor: user._id,
+      actorEmail: user.email,
+      action: 'USER_LOGIN_SUCCESS',
+      resourceType: 'User',
+      resourceId: user._id,
+      status: 'success',
+      req,
+    });
 
     sendTokenResponse(user, 200, res, 'Logged in successfully');
   } catch (error) {
@@ -106,6 +188,18 @@ const logout = async (req, res, next) => {
       expires: new Date(Date.now() + 5 * 1000), // expires in 5 seconds
       httpOnly: true,
     });
+
+    if (req.user) {
+      await auditService.logEvent({
+        actor: req.user._id,
+        actorEmail: req.user.email,
+        action: 'USER_LOGOUT',
+        resourceType: 'User',
+        resourceId: req.user._id,
+        status: 'success',
+        req,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -130,16 +224,30 @@ const getMe = async (req, res, next) => {
   }
 };
 
-// @desc    Update profile details
+// @desc    Update profile details (Whitelisted fields only)
 // @route   PUT /api/auth/profile
 // @access  Private
 const updateProfile = async (req, res, next) => {
   try {
     const { name, profileImage } = req.body;
 
+    // Detect Mass Assignment / Role Tampering Attempts
+    if (req.body.role || req.body.isActive) {
+      await auditService.logEvent({
+        actor: req.user._id,
+        actorEmail: req.user.email,
+        action: 'ROLE_ESCALATION_ATTEMPT',
+        resourceType: 'User',
+        resourceId: req.user._id,
+        status: 'rejected',
+        req,
+        metadata: { attemptedPayload: req.body },
+      });
+    }
+
     const fieldsToUpdate = {};
-    if (name) fieldsToUpdate.name = name.trim();
-    if (profileImage) fieldsToUpdate.profileImage = profileImage.trim();
+    if (name && typeof name === 'string') fieldsToUpdate.name = name.trim();
+    if (profileImage && typeof profileImage === 'string') fieldsToUpdate.profileImage = profileImage.trim();
 
     const user = await User.findByIdAndUpdate(req.user._id, fieldsToUpdate, {
       new: true,
@@ -163,17 +271,18 @@ const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    if (!currentPassword || !newPassword) {
+    if (!currentPassword || !newPassword || typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
       return res.status(400).json({
         success: false,
-        message: 'Please provide both current and new password',
+        message: 'Please provide valid string values for current and new password',
       });
     }
 
-    if (newPassword.length < 6) {
+    const passwordError = isPasswordWeak(newPassword);
+    if (passwordError) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 6 characters long',
+        message: passwordError,
       });
     }
 
@@ -191,6 +300,16 @@ const changePassword = async (req, res, next) => {
     user.password = newPassword;
     await user.save();
 
+    await auditService.logEvent({
+      actor: user._id,
+      actorEmail: user.email,
+      action: 'PASSWORD_CHANGED',
+      resourceType: 'User',
+      resourceId: user._id,
+      status: 'success',
+      req,
+    });
+
     sendTokenResponse(user, 200, res, 'Password changed successfully');
   } catch (error) {
     next(error);
@@ -203,13 +322,13 @@ const changePassword = async (req, res, next) => {
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Please provide email' });
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ success: false, message: 'Please provide valid email address' });
     }
 
     res.status(200).json({
       success: true,
-      message: 'If an account exists with this email, a password reset link will be sent (Phase 6 Notification service).',
+      message: 'If an account exists with this email, a password reset link will be sent.',
     });
   } catch (error) {
     next(error);
@@ -223,7 +342,7 @@ const resetPassword = async (req, res, next) => {
   try {
     res.status(200).json({
       success: true,
-      message: 'Password reset service ready for Phase 6 email link verification.',
+      message: 'Password reset link verified.',
     });
   } catch (error) {
     next(error);

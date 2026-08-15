@@ -1,3 +1,4 @@
+const xss = require('xss');
 const Review = require('../models/Review');
 const ReviewReport = require('../models/ReviewReport');
 const Booking = require('../models/Booking');
@@ -5,9 +6,10 @@ const Hotel = require('../models/Hotel');
 const reviewEligibilityService = require('./reviewEligibilityService');
 const ratingService = require('./ratingService');
 const notificationService = require('./notificationService');
+const auditService = require('./auditService');
 
 const reviewService = {
-  // Create verified stay review
+  // Create verified stay review (XSS Sanitized)
   createReview: async (userId, bookingId, rating, title, comment, categories = {}) => {
     // 1. Verify eligibility
     const eligibility = await reviewEligibilityService.checkReviewEligibility(bookingId, userId);
@@ -35,23 +37,37 @@ const reviewService = {
       }
     });
 
-    // 3. Create Review
+    // 3. XSS Sanitize Text Fields
+    const sanitizedTitle = title ? xss(title.trim()) : '';
+    const sanitizedComment = xss(comment.trim());
+
+    // 4. Create Review
     const review = await Review.create({
       user: userId,
       booking: booking._id,
       hotel: booking.hotel._id || booking.hotel,
       rating: Number(rating),
-      title: title ? title.trim() : '',
-      comment: comment.trim(),
+      title: sanitizedTitle,
+      comment: sanitizedComment,
       categories: validCategories,
       status: 'published',
       isVerifiedStay: true,
     });
 
-    // 4. Update Hotel Rating Aggregate
+    // 5. Update Hotel Rating Aggregate
     await ratingService.recalculateHotelRating(booking.hotel._id || booking.hotel);
 
-    // 5. Notify Manager about new review
+    // Audit Log
+    await auditService.logEvent({
+      actor: userId,
+      action: 'REVIEW_CREATED',
+      resourceType: 'Review',
+      resourceId: review._id,
+      status: 'success',
+      metadata: { hotelId: booking.hotel._id || booking.hotel, rating },
+    });
+
+    // 6. Notify Manager about new review
     const hotel = await Hotel.findById(booking.hotel._id || booking.hotel).select('owner name');
     if (hotel && hotel.owner) {
       await notificationService.dispatchNotificationEvent('MANAGER_NEW_BOOKING', {
@@ -68,7 +84,7 @@ const reviewService = {
     return review;
   },
 
-  // Edit existing customer review
+  // Edit existing customer review (XSS Sanitized)
   updateReview: async (userId, reviewId, rating, title, comment, categories = {}) => {
     const review = await Review.findById(reviewId);
     if (!review) {
@@ -97,8 +113,8 @@ const reviewService = {
     });
 
     review.rating = Number(rating);
-    review.title = title ? title.trim() : '';
-    review.comment = comment.trim();
+    review.title = title ? xss(title.trim()) : '';
+    review.comment = xss(comment.trim());
     review.categories = validCategories;
     await review.save();
 
@@ -182,7 +198,7 @@ const reviewService = {
     return reviews;
   },
 
-  // Manager official response
+  // Manager official response (XSS Sanitized)
   postManagerResponse: async (managerId, reviewId, comment) => {
     const review = await Review.findById(reviewId).populate('hotel', 'owner name');
     if (!review) {
@@ -198,12 +214,21 @@ const reviewService = {
     }
 
     review.managerResponse = {
-      comment: comment.trim(),
+      comment: xss(comment.trim()),
       respondedAt: new Date(),
       respondedBy: managerId,
     };
 
     await review.save();
+
+    await auditService.logEvent({
+      actor: managerId,
+      action: 'MANAGER_RESPONSE_CREATED',
+      resourceType: 'Review',
+      resourceId: review._id,
+      status: 'success',
+    });
+
     return review;
   },
 
@@ -223,7 +248,7 @@ const reviewService = {
         review: reviewId,
         reportedBy: userId,
         reason,
-        description: description.trim(),
+        description: xss(description.trim()),
         status: 'pending',
       },
       { upsert: true, new: true }
@@ -235,6 +260,15 @@ const reviewService = {
       review.status = 'reported';
     }
     await review.save();
+
+    await auditService.logEvent({
+      actor: userId,
+      action: 'REVIEW_REPORTED',
+      resourceType: 'ReviewReport',
+      resourceId: report._id,
+      status: 'success',
+      metadata: { reviewId, reason },
+    });
 
     return report;
   },
@@ -283,6 +317,15 @@ const reviewService = {
     report.resolvedAt = new Date();
     await report.save();
 
+    await auditService.logEvent({
+      actor: adminId,
+      action: 'REVIEW_MODERATED',
+      resourceType: 'ReviewReport',
+      resourceId: reportId,
+      status: 'success',
+      metadata: { action },
+    });
+
     return report;
   },
 
@@ -300,6 +343,15 @@ const reviewService = {
 
     // Recalculate rating statistics
     await ratingService.recalculateHotelRating(review.hotel);
+
+    await auditService.logEvent({
+      actor: adminId,
+      action: 'REVIEW_MODERATED',
+      resourceType: 'Review',
+      resourceId: reviewId,
+      status: 'success',
+      metadata: { status },
+    });
 
     return review;
   },
