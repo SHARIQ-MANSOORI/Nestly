@@ -1,12 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Star, ArrowRight, ShieldCheck } from 'lucide-react';
+import { MapPin, Star, ArrowRight } from 'lucide-react';
 import { formatPrice, formatRating } from '../utils/formatters';
 
 const HotelCard = ({ hotel }) => {
   const mainImage = hotel.images && hotel.images.length > 0
     ? hotel.images[0]
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800';
+
+  const currentRating = hotel.averageRating || hotel.rating || 4.5;
 
   return (
     <div className="group bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full">
@@ -21,7 +23,7 @@ const HotelCard = ({ hotel }) => {
         {/* Rating Badge */}
         <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-semibold text-slate-800 flex items-center gap-1 shadow-sm border border-slate-200/50">
           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-          <span>{formatRating(hotel.rating)}</span>
+          <span>{formatRating(currentRating)}</span>
           <span className="text-slate-400 text-[10px]">({hotel.reviewCount || 0})</span>
         </div>
 

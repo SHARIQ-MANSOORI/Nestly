@@ -57,9 +57,28 @@ const hotelSchema = new mongoose.Schema(
       max: 5,
       index: true,
     },
+    averageRating: {
+      type: Number,
+      default: 4.5,
+      min: 0,
+      max: 5,
+    },
     reviewCount: {
       type: Number,
       default: 0,
+    },
+    ratingBreakdown: {
+      5: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      1: { type: Number, default: 0 },
+    },
+    categoryRatings: {
+      cleanliness: { type: Number, default: 0 },
+      location: { type: Number, default: 0 },
+      service: { type: Number, default: 0 },
+      value: { type: Number, default: 0 },
     },
     startingPrice: {
       type: Number,

@@ -13,13 +13,16 @@ import CustomerBookingsPage from './pages/CustomerBookingsPage';
 import BookingDetailsPage from './pages/BookingDetailsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
+import MyReviewsPage from './pages/MyReviewsPage';
 import ManagerDashboardPage from './pages/ManagerDashboardPage';
 import ManagerAnalyticsPage from './pages/ManagerAnalyticsPage';
+import ManagerReviewsPage from './pages/ManagerReviewsPage';
 import HotelFormPage from './pages/HotelFormPage';
 import ManagerHotelDetailsPage from './pages/ManagerHotelDetailsPage';
 import ManagerBookingsPage from './pages/ManagerBookingsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
+import AdminModerationPage from './pages/AdminModerationPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -62,6 +65,14 @@ function App() {
             }
           />
           <Route
+            path="my-reviews"
+            element={
+              <ProtectedRoute>
+                <MyReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="bookings/review"
             element={
               <ProtectedRoute>
@@ -100,6 +111,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['manager', 'admin']}>
                 <ManagerAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/reviews"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <ManagerReviewsPage />
               </ProtectedRoute>
             }
           />
@@ -158,6 +177,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/moderation"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminModerationPage />
               </ProtectedRoute>
             }
           />

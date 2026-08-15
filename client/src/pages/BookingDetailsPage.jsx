@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, Users, MapPin, Building2, ShieldCheck, CheckCircle2, AlertCircle, Printer, XCircle, CreditCard, Lock } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, MapPin, Building2, ShieldCheck, CheckCircle2, AlertCircle, Printer, XCircle, CreditCard, Lock, Star } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import bookingService from '../services/bookingService';
+import reviewService from '../services/reviewService';
 import PaymentModal from '../components/PaymentModal';
+import ReviewFormModal from '../components/ReviewFormModal';
 
 const BookingDetailsPage = () => {
   const { id } = useParams();
@@ -14,6 +16,10 @@ const BookingDetailsPage = () => {
   const [error, setError] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSuccessBanner, setPaymentSuccessBanner] = useState(location.state?.paymentSuccess || false);
+
+  // Review Eligibility state
+  const [reviewEligibility, setReviewEligibility] = useState({ eligible: false, reason: null });
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   const fetchBookingDetails = async () => {
     try {
@@ -28,9 +34,20 @@ const BookingDetailsPage = () => {
     }
   };
 
+  const fetchReviewEligibility = async () => {
+    if (!id) return;
+    try {
+      const res = await reviewService.checkEligibility(id);
+      setReviewEligibility(res);
+    } catch (e) {
+      // Quiet fail if network glitch
+    }
+  };
+
   useEffect(() => {
     if (id) {
       fetchBookingDetails();
+      fetchReviewEligibility();
     }
   }, [id]);
 
@@ -39,6 +56,7 @@ const BookingDetailsPage = () => {
       try {
         await bookingService.cancelBooking(id, 'Cancelled by customer');
         await fetchBookingDetails();
+        await fetchReviewEligibility();
       } catch (err) {
         alert(err.message || 'Failed to cancel reservation');
       }
@@ -113,6 +131,38 @@ const BookingDetailsPage = () => {
             </div>
           </div>
           <button onClick={() => setPaymentSuccessBanner(false)} className="text-xs font-bold text-emerald-700 hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {/* Verified Stay Review CTA Card */}
+      {reviewEligibility.eligible && (
+        <div className="p-5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 font-extrabold text-sm">
+              <Star className="w-4 h-4 fill-white" />
+              <span>How Was Your Stay at {booking.hotel?.name}?</span>
+            </div>
+            <p className="text-xs text-amber-100">Your stay is completed! Share your experience to help future Nestly guests.</p>
+          </div>
+
+          <button
+            onClick={() => setShowReviewModal(true)}
+            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-md shrink-0"
+          >
+            Write a Review
+          </button>
+        </div>
+      )}
+
+      {reviewEligibility.reason === 'ALREADY_REVIEWED' && (
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs text-slate-700">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">✓ You have published a verified stay review for this reservation.</span>
+          </div>
+          <Link to="/my-reviews" className="text-xs font-bold text-blue-700 hover:underline">
+            View My Reviews
+          </Link>
         </div>
       )}
 
@@ -265,6 +315,16 @@ const BookingDetailsPage = () => {
           onClose={() => setShowPaymentModal(false)}
           booking={booking}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* Review Form Modal */}
+      {showReviewModal && booking && (
+        <ReviewFormModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          bookingId={booking._id}
+          onSuccess={fetchReviewEligibility}
         />
       )}
 

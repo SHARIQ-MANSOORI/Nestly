@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Users, Building, Activity, CheckCircle2, BarChart3, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Users, Building, Activity, CheckCircle2, BarChart3, ArrowRight, Flag } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 const AdminDashboardPage = () => {
@@ -19,17 +19,41 @@ const AdminDashboardPage = () => {
           <p className="text-xs text-slate-500 mt-1">Logged in as Administrator {user?.name} ({user?.email})</p>
         </div>
 
-        <Link
-          to="/admin/analytics"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm shrink-0"
-        >
-          <BarChart3 className="w-4 h-4 text-emerald-400" />
-          <span>Platform Analytics</span>
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to="/admin/moderation"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-colors shadow-sm"
+          >
+            <Flag className="w-4 h-4 text-rose-600" />
+            <span>Review Moderation Queue</span>
+          </Link>
+
+          <Link
+            to="/admin/analytics"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm"
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-400" />
+            <span>Platform Analytics</span>
+          </Link>
+        </div>
       </div>
 
       {/* Admin Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+        <Link
+          to="/admin/moderation"
+          className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-rose-400 transition-colors group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
+            <Flag className="w-5 h-5" />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold text-slate-900 block">Moderation</span>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-rose-600 group-hover:translate-x-1 transition-all" />
+          </div>
+          <span className="text-xs text-slate-500 font-medium">Review Abuse Reports & Actions</span>
+        </Link>
+
         <Link
           to="/admin/analytics"
           className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-emerald-400 transition-colors group"
@@ -41,16 +65,8 @@ const AdminDashboardPage = () => {
             <span className="text-2xl font-bold text-slate-900 block">Analytics</span>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
           </div>
-          <span className="text-xs text-slate-500 font-medium">Platform Revenue & Performance Reports</span>
+          <span className="text-xs text-slate-500 font-medium">Platform Revenue & Reports</span>
         </Link>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Building className="w-5 h-5" />
-          </div>
-          <span className="text-2xl font-bold text-slate-900 block">12</span>
-          <span className="text-xs text-slate-500 font-medium">Listed Hotels</span>
-        </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
@@ -77,6 +93,10 @@ const AdminDashboardPage = () => {
         </p>
 
         <div className="space-y-2 pt-2 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Phase 8 (Active): Review moderation queue, abuse report resolutions & status overrides</span>
+          </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Phase 7 (Active): Platform analytics aggregation, revenue growth monitoring, & top hotel rankings</span>

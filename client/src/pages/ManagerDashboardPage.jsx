@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Hotel, MapPin, Edit, Settings, ArrowRight, ShieldCheck, Power, BarChart3, BedDouble } from 'lucide-react';
+import { Building2, Plus, Hotel, MapPin, Edit, Settings, ArrowRight, ShieldCheck, Power, BarChart3, BedDouble, Star } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 import hotelService from '../services/hotelService';
 import useAuth from '../hooks/useAuth';
@@ -62,6 +62,14 @@ const ManagerDashboardPage = () => {
 
         <div className="flex items-center gap-3 shrink-0">
           <Link
+            to="/manager/reviews"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 transition-colors shadow-sm"
+          >
+            <Star className="w-4 h-4 text-purple-600 fill-purple-600" />
+            <span>Property Reviews</span>
+          </Link>
+
+          <Link
             to="/manager/analytics"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-sm"
           >
@@ -80,7 +88,7 @@ const ManagerDashboardPage = () => {
       </div>
 
       {/* Overview Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2">
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <Hotel className="w-5 h-5" />
@@ -98,6 +106,20 @@ const ManagerDashboardPage = () => {
         </div>
 
         <Link
+          to="/manager/reviews"
+          className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-purple-400 transition-colors group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <Star className="w-5 h-5" />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold text-slate-900 block">Reviews</span>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+          </div>
+          <span className="text-xs text-slate-500 font-medium">Guest Ratings & Responses</span>
+        </Link>
+
+        <Link
           to="/manager/analytics"
           className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-2 hover:border-blue-400 transition-colors group"
         >
@@ -108,7 +130,7 @@ const ManagerDashboardPage = () => {
             <span className="text-2xl font-bold text-slate-900 block">Analytics</span>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
           </div>
-          <span className="text-xs text-slate-500 font-medium">Revenue, Occupancy % & ADR Reports</span>
+          <span className="text-xs text-slate-500 font-medium">Revenue & Occupancy %</span>
         </Link>
       </div>
 

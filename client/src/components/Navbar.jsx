@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble, Bell, CheckCircle2, BarChart3 } from 'lucide-react';
+import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble, Bell, CheckCircle2, BarChart3, Star, Flag } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import notificationService from '../services/notificationService';
 
@@ -217,6 +217,15 @@ const Navbar = () => {
                     </Link>
 
                     <Link
+                      to="/my-reviews"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                    >
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      My Stay Reviews
+                    </Link>
+
+                    <Link
                       to="/settings/notifications"
                       onClick={() => setProfileDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
@@ -227,6 +236,14 @@ const Navbar = () => {
 
                     {(user?.role === 'manager' || user?.role === 'admin') && (
                       <>
+                        <Link
+                          to="/manager/reviews"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-purple-700 bg-purple-50/60 hover:bg-purple-100/60 font-bold"
+                        >
+                          <Star className="w-4 h-4 text-purple-600" />
+                          Property Reviews
+                        </Link>
                         <Link
                           to="/manager/analytics"
                           onClick={() => setProfileDropdownOpen(false)}
@@ -243,19 +260,19 @@ const Navbar = () => {
                           <LayoutDashboard className="w-4 h-4 text-purple-600" />
                           Manager Properties
                         </Link>
-                        <Link
-                          to="/manager/bookings"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                        >
-                          <BedDouble className="w-4 h-4 text-purple-600" />
-                          Manager Bookings
-                        </Link>
                       </>
                     )}
 
                     {user?.role === 'admin' && (
                       <>
+                        <Link
+                          to="/admin/moderation"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-rose-700 bg-rose-50/60 hover:bg-rose-100/60 font-bold"
+                        >
+                          <Flag className="w-4 h-4 text-rose-600" />
+                          Review Moderation
+                        </Link>
                         <Link
                           to="/admin/analytics"
                           onClick={() => setProfileDropdownOpen(false)}
@@ -371,6 +388,15 @@ const Navbar = () => {
                 </Link>
 
                 <Link
+                  to="/my-reviews"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
+                >
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  My Stay Reviews
+                </Link>
+
+                <Link
                   to="/settings/notifications"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
@@ -381,6 +407,14 @@ const Navbar = () => {
 
                 {(user?.role === 'manager' || user?.role === 'admin') && (
                   <>
+                    <Link
+                      to="/manager/reviews"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-700 bg-purple-50 font-bold"
+                    >
+                      <Star className="w-4 h-4 text-purple-600" />
+                      Property Reviews
+                    </Link>
                     <Link
                       to="/manager/analytics"
                       onClick={() => setMobileMenuOpen(false)}
@@ -397,26 +431,28 @@ const Navbar = () => {
                       <LayoutDashboard className="w-4 h-4 text-purple-600" />
                       Manager Dashboard
                     </Link>
-                    <Link
-                      to="/manager/bookings"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-700 hover:bg-purple-50 font-medium"
-                    >
-                      <BedDouble className="w-4 h-4 text-purple-600" />
-                      Manager Bookings
-                    </Link>
                   </>
                 )}
 
                 {user?.role === 'admin' && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-700 hover:bg-emerald-50 font-medium"
-                  >
-                    <Shield className="w-4 h-4 text-emerald-600" />
-                    Admin Dashboard
-                  </Link>
+                  <>
+                    <Link
+                      to="/admin/moderation"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-rose-700 bg-rose-50 font-bold"
+                    >
+                      <Flag className="w-4 h-4 text-rose-600" />
+                      Review Moderation
+                    </Link>
+                    <Link
+                      to="/admin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-700 hover:bg-emerald-50 font-medium"
+                    >
+                      <Shield className="w-4 h-4 text-emerald-600" />
+                      Admin Dashboard
+                    </Link>
+                  </>
                 )}
 
                 <button
