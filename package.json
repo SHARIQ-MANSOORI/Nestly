@@ -8,9 +8,17 @@
     "seed": "cd server && npm run seed",
     "server": "cd server && npm start",
     "client": "cd client && npm run dev",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "test": "npm run test:unit && npm run test:integration && npm run test:frontend",
+    "test:unit": "cd server && npx jest tests/unit",
+    "test:integration": "cd server && npx jest tests/integration",
+    "test:frontend": "cd client && npx vitest run",
+    "test:e2e": "npx playwright test",
+    "test:coverage": "cd server && npx jest --coverage",
+    "build": "cd client && npm run build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.50.0",
     "concurrently": "^8.2.2"
   }
 }

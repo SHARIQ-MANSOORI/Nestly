@@ -5,8 +5,8 @@ const normalizeDate = (dateStringOrObject) => {
   return d;
 };
 
-// Pure server-side pricing engine
-const calculateBookingPrice = (pricePerNight, checkInInput, checkOutInput, roomsBooked = 1) => {
+// Calculate number of nights between check-in and check-out
+const calculateNights = (checkInInput, checkOutInput) => {
   const checkIn = normalizeDate(checkInInput);
   const checkOut = normalizeDate(checkOutInput);
 
@@ -19,7 +19,14 @@ const calculateBookingPrice = (pricePerNight, checkInInput, checkOutInput, rooms
   }
 
   const diffTime = Math.abs(checkOut - checkIn);
-  const numberOfNights = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+};
+
+// Pure server-side pricing engine
+const calculateBookingPrice = (pricePerNight, checkInInput, checkOutInput, roomsBooked = 1) => {
+  const checkIn = normalizeDate(checkInInput);
+  const checkOut = normalizeDate(checkOutInput);
+  const numberOfNights = calculateNights(checkInInput, checkOutInput);
 
   const validRoomsBooked = Math.max(1, Number(roomsBooked) || 1);
   const subtotal = Math.round(pricePerNight * numberOfNights * validRoomsBooked);
@@ -45,5 +52,6 @@ const calculateBookingPrice = (pricePerNight, checkInInput, checkOutInput, rooms
 
 module.exports = {
   normalizeDate,
+  calculateNights,
   calculateBookingPrice,
 };

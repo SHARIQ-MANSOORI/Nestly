@@ -34,7 +34,7 @@ const ratingService = {
       },
     ]);
 
-    let rating = 4.5;
+    let rating = 0;
     let reviewCount = 0;
     let ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     let categoryRatings = { cleanliness: 0, location: 0, service: 0, value: 0 };
@@ -68,6 +68,7 @@ const ratingService = {
 
     return {
       rating,
+      averageRating: rating,
       reviewCount,
       ratingBreakdown,
       categoryRatings,
