@@ -1,0 +1,16 @@
+{
+  "name": "nestly",
+  "version": "1.0.0",
+  "description": "Nestly — Production-oriented hotel discovery and booking platform",
+  "private": true,
+  "scripts": {
+    "setup": "cd server && npm install && cd ../client && npm install",
+    "seed": "cd server && npm run seed",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
