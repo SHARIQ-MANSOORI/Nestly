@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard } from 'lucide-react';
+import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 const Navbar = () => {
@@ -52,10 +52,12 @@ const Navbar = () => {
             <Compass className="w-4 h-4" />
             Explore Hotels
           </Link>
-          <Link to="/hotels?location=Goa" className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors">
-            <MapPin className="w-4 h-4" />
-            Goa Stays
-          </Link>
+          {isAuthenticated && (
+            <Link to="/bookings" className={`flex items-center gap-1.5 text-sm transition-colors ${isActive('/bookings')}`}>
+              <Calendar className="w-4 h-4" />
+              My Bookings
+            </Link>
+          )}
         </nav>
 
         {/* Action Buttons & Auth Dropdown */}
@@ -86,6 +88,15 @@ const Navbar = () => {
                   </div>
 
                   <Link
+                    to="/bookings"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                  >
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    My Reservations
+                  </Link>
+
+                  <Link
                     to="/profile"
                     onClick={() => setProfileDropdownOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
@@ -95,14 +106,24 @@ const Navbar = () => {
                   </Link>
 
                   {(user?.role === 'manager' || user?.role === 'admin') && (
-                    <Link
-                      to="/manager"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                      Manager Dashboard
-                    </Link>
+                    <>
+                      <Link
+                        to="/manager"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                      >
+                        <LayoutDashboard className="w-4 h-4 text-purple-600" />
+                        Manager Properties
+                      </Link>
+                      <Link
+                        to="/manager/bookings"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                      >
+                        <BedDouble className="w-4 h-4 text-purple-600" />
+                        Manager Bookings
+                      </Link>
+                    </>
                   )}
 
                   {user?.role === 'admin' && (
@@ -183,6 +204,16 @@ const Navbar = () => {
                   <p className="text-xs font-bold text-slate-900">{user?.name}</p>
                   <p className="text-[10px] text-blue-700 font-semibold uppercase">{roleLabels[user?.role]}</p>
                 </div>
+
+                <Link
+                  to="/bookings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
+                >
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  My Reservations
+                </Link>
+
                 <Link
                   to="/profile"
                   onClick={() => setMobileMenuOpen(false)}
@@ -191,16 +222,28 @@ const Navbar = () => {
                   <Settings className="w-4 h-4 text-slate-500" />
                   Account Settings
                 </Link>
+
                 {(user?.role === 'manager' || user?.role === 'admin') && (
-                  <Link
-                    to="/manager"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-700 hover:bg-purple-50 font-medium"
-                  >
-                    <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                    Manager Dashboard
-                  </Link>
+                  <>
+                    <Link
+                      to="/manager"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-700 hover:bg-purple-50 font-medium"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-purple-600" />
+                      Manager Dashboard
+                    </Link>
+                    <Link
+                      to="/manager/bookings"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-700 hover:bg-purple-50 font-medium"
+                    >
+                      <BedDouble className="w-4 h-4 text-purple-600" />
+                      Manager Bookings
+                    </Link>
+                  </>
                 )}
+
                 {user?.role === 'admin' && (
                   <Link
                     to="/admin"
@@ -211,6 +254,7 @@ const Navbar = () => {
                     Admin Dashboard
                   </Link>
                 )}
+
                 <button
                   onClick={handleLogout}
                   className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-rose-600 hover:bg-rose-50 font-medium"

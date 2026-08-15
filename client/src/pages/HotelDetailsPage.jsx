@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Star, ShieldCheck, CheckCircle2, ArrowLeft, Building, Coffee, Wifi, Tv, Utensils } from 'lucide-react';
+import { MapPin, Star, ShieldCheck, CheckCircle2, ArrowLeft } from 'lucide-react';
 import ImageGallery from '../components/ImageGallery';
 import RoomCard from '../components/RoomCard';
+import AvailabilityPicker from '../components/AvailabilityPicker';
 import { HotelDetailsSkeleton } from '../components/LoadingSkeleton';
 import ErrorAlert from '../components/ErrorAlert';
 import { formatPrice, formatRating } from '../utils/formatters';
@@ -96,7 +97,7 @@ const HotelDetailsPage = () => {
       {/* Image Gallery */}
       <ImageGallery images={hotel.images} />
 
-      {/* Main Content: Overview + Amenities */}
+      {/* Main Content: Overview + Availability Picker */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left Column: Description & Amenities */}
@@ -128,34 +129,10 @@ const HotelDetailsPage = () => {
           </div>
         </div>
 
-        {/* Right Sidebar: Key Summary */}
+        {/* Right Sidebar: Live Availability & Rate Calculator */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6 sticky top-24">
-            <div className="border-b border-slate-100 pb-4">
-              <span className="text-xs font-medium text-slate-400 block uppercase tracking-wider">Rooms starting from</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-3xl font-extrabold text-slate-900">{formatPrice(hotel.startingPrice)}</span>
-                <span className="text-xs text-slate-500 font-normal">/ night</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Clean & sanitized rooms</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Instant booking confirmation (Phase 4 ready)</span>
-              </div>
-            </div>
-
-            <a
-              href="#available-rooms"
-              className="w-full block py-3 bg-blue-600 hover:bg-blue-700 text-white text-center text-sm font-semibold rounded-xl transition-colors shadow-sm"
-            >
-              Select Your Room
-            </a>
+          <div className="sticky top-24">
+            <AvailabilityPicker hotel={hotel} rooms={hotel.rooms} />
           </div>
         </div>
       </div>
@@ -164,7 +141,7 @@ const HotelDetailsPage = () => {
       <div id="available-rooms" className="space-y-6 pt-4 border-t border-slate-200">
         <div>
           <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block mb-1">Accommodation Options</span>
-          <h2 className="text-2xl font-extrabold text-slate-900">Available Rooms</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900">Configured Rooms & Packages</h2>
         </div>
 
         {hotel.rooms && hotel.rooms.length > 0 ? (

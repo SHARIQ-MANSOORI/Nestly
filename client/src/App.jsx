@@ -8,9 +8,13 @@ import HotelDetailsPage from './pages/HotelDetailsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import BookingReviewPage from './pages/BookingReviewPage';
+import CustomerBookingsPage from './pages/CustomerBookingsPage';
+import BookingDetailsPage from './pages/BookingDetailsPage';
 import ManagerDashboardPage from './pages/ManagerDashboardPage';
 import HotelFormPage from './pages/HotelFormPage';
 import ManagerHotelDetailsPage from './pages/ManagerHotelDetailsPage';
+import ManagerBookingsPage from './pages/ManagerBookingsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -28,12 +32,36 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
 
-          {/* Protected User Routes */}
+          {/* Protected Customer Routes */}
           <Route
             path="profile"
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="bookings/review"
+            element={
+              <ProtectedRoute>
+                <BookingReviewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="bookings"
+            element={
+              <ProtectedRoute>
+                <CustomerBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="bookings/:id"
+            element={
+              <ProtectedRoute>
+                <BookingDetailsPage />
               </ProtectedRoute>
             }
           />
@@ -76,6 +104,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['manager', 'admin']}>
                 <HotelFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/bookings"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <ManagerBookingsPage />
               </ProtectedRoute>
             }
           />

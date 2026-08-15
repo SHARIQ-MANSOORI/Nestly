@@ -1,6 +1,6 @@
 # Nestly — Production-Oriented Hotel Booking & Management Platform
 
-Nestly is a modern, high-performance hotel discovery and management platform built on the **MERN Stack** (MongoDB, Express, React, Node.js).
+Nestly is a modern, high-performance hotel discovery, management, and booking platform built on the **MERN Stack** (MongoDB, Express, React, Node.js).
 
 ---
 
@@ -27,6 +27,17 @@ Nestly is a modern, high-performance hotel discovery and management platform bui
 - Manager Views: `ManagerDashboardPage` (overview metrics & property list), `HotelFormPage` (`/manager/hotels/new` & `/manager/hotels/:id/edit`), `ManagerHotelDetailsPage` (`/manager/hotels/:id`), and `RoomFormModal`.
 - Public Integration: Active hotels and available rooms automatically appear in public search and discovery (`/hotels`).
 
+### Phase 4: Booking Engine & Double-Booking Prevention
+- **Date Overlap Algorithm**: Standard half-open date interval overlap query `(existingCheckIn < requestedCheckOut AND existingCheckOut > requestedCheckIn)` checking active bookings (`confirmed`, `pending`).
+- **Double-Booking & Concurrency Protection**: Per-room async mutex lock (`acquireRoomLock`) combined with MongoDB Session Transaction isolation, guaranteeing serial evaluation of room inventory during reservation creation. If inventory is depleted, conflicting requests return `409 Conflict`.
+- **Backend Pricing & Snapshot Engine**: Pure server-side pricing calculation (`subtotal = pricePerNight * nights * roomsBooked`, `taxes = 12%`). Permanent price snapshots are recorded on `Booking` documents, protecting historical reservations from future room rate alterations.
+- **Booking Reference Generator**: Generates human-readable unique reference codes (e.g. `NST-2026-X8K9L2`).
+- **Customer & Manager UI Flows**:
+  - `AvailabilityPicker` widget on `HotelDetailsPage`: Interactive check-in/out date selection, live availability query, and itemized rate calculation.
+  - `BookingReviewPage` (`/bookings/review`): Reservation confirmation review screen.
+  - `CustomerBookingsPage` (`/bookings`) & `BookingDetailsPage` (`/bookings/:id`): Customer reservation history and receipt view with single-click cancellation functionality.
+  - `ManagerBookingsPage` (`/manager/bookings`): Property reservation monitoring view for managers.
+
 ---
 
 ## 🔑 Demo Test Accounts
@@ -35,8 +46,8 @@ All accounts use password: `password123`
 
 | Role | Email | Permissions |
 | :--- | :--- | :--- |
-| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing |
-| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, starting rate calculation |
+| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, booking cancellation |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring |
 | **Admin** | `admin@example.com` | Platform administration & full property access |
 
 ---
@@ -59,12 +70,21 @@ All accounts use password: `password123`
 - `PUT /api/hotels/:id` — Edit hotel property (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
 - `DELETE /api/hotels/:id` — Soft deactivate hotel (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
 
-### Room Endpoints
+### Room & Availability Endpoints
 - `GET /api/hotels/:hotelId/rooms` — Public room options
 - `GET /api/rooms/:id` — Public room details
+- `GET /api/hotels/:hotelId/rooms/:roomId/availability` — Public availability check & live rate calculation
 - `POST /api/hotels/:hotelId/rooms` — Add room package (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
 - `PUT /api/rooms/:id` — Update room package (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
 - `DELETE /api/rooms/:id` — Soft deactivate room (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
+
+### Booking Endpoints
+- `POST /api/bookings/quote` — Public server price quote calculation
+- `POST /api/bookings` — Create reservation (`protect`)
+- `GET /api/bookings/my` — Customer reservation history (`protect`)
+- `GET /api/bookings/:id` — View reservation receipt details (`protect`)
+- `POST /api/bookings/:id/cancel` — Cancel reservation & release inventory (`protect`)
+- `GET /api/bookings/manager/all` — Manager property reservations (`protect`, `authorize('manager', 'admin')`)
 
 ---
 
@@ -96,4 +116,5 @@ cd server
 node test_api.js      # Phase 1: Discovery & Filter API Suite
 node test_auth.js     # Phase 2: Auth, JWT, Cookie & RBAC Suite
 node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
+node test_phase4.js   # Phase 4: Booking Engine & Concurrency Double-Booking Suite
 ```

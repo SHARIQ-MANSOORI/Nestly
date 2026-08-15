@@ -9,11 +9,12 @@ const {
   deleteHotel,
 } = require('../controllers/hotelController');
 const { getRoomsByHotel, createRoom } = require('../controllers/roomController');
+const { checkAvailability } = require('../controllers/bookingController');
 const { protect } = require('../middleware/authenticate');
 const { authorize } = require('../middleware/authorize');
 const { verifyHotelOwnership } = require('../middleware/verifyOwnership');
 
-// Manager routes (placed BEFORE parametric :id routes to prevent conflict)
+// Manager routes
 router.get('/manager/my-hotels', protect, authorize('manager', 'admin'), getManagerHotels);
 
 // Public hotel routes & Manager Creation
@@ -21,7 +22,10 @@ router.route('/')
   .get(getHotels)
   .post(protect, authorize('manager', 'admin'), createHotel);
 
-// Parametric hotel routes with Ownership Guard
+// Availability check endpoint
+router.get('/:hotelId/rooms/:roomId/availability', checkAvailability);
+
+// Parametric hotel routes
 router.route('/:id')
   .get(getHotelById)
   .put(protect, authorize('manager', 'admin'), verifyHotelOwnership, updateHotel)
