@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const Booking = require('../models/Booking');
 const razorpayProvider = require('./providers/razorpayProvider');
+const notificationService = require('./notificationService');
 
 const paymentService = {
   // Create Payment Order for Booking (Server-Side Amount Authority)
@@ -68,7 +69,7 @@ const paymentService = {
 
   // Verify HMAC Signature & Complete Payment (Idempotent)
   verifyAndProcessPayment: async (bookingId, userId, razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findById(bookingId).populate('user', 'name email');
     if (!booking) {
       const err = new Error('Booking record not found');
       err.statusCode = 404;
@@ -76,7 +77,7 @@ const paymentService = {
     }
 
     // Ownership check
-    if (booking.user.toString() !== userId.toString()) {
+    if (booking.user._id.toString() !== userId.toString()) {
       const err = new Error('Forbidden: You are not authorized to verify payment for this booking');
       err.statusCode = 403;
       throw err;
@@ -97,7 +98,7 @@ const paymentService = {
     if (!payment) {
       payment = await Payment.create({
         booking: booking._id,
-        user: booking.user,
+        user: booking.user._id,
         provider: 'razorpay',
         providerOrderId: razorpayOrderId,
         amount: booking.totalAmount,
@@ -115,6 +116,14 @@ const paymentService = {
       payment.failureReason = 'HMAC Signature verification failed';
       await payment.save();
 
+      // Trigger PAYMENT_FAILED notification
+      await notificationService.dispatchNotificationEvent('PAYMENT_FAILED', {
+        userId: booking.user._id,
+        bookingId: booking._id,
+        bookingReference: booking.bookingReference,
+        userName: booking.user?.name || 'Guest',
+      });
+
       const err = new Error('Invalid payment signature verification failed');
       err.statusCode = 400;
       throw err;
@@ -131,6 +140,16 @@ const paymentService = {
     booking.paymentStatus = 'paid';
     booking.status = 'confirmed';
     await booking.save();
+
+    // Trigger PAYMENT_SUCCESS notification
+    await notificationService.dispatchNotificationEvent('PAYMENT_SUCCESS', {
+      userId: booking.user._id,
+      bookingId: booking._id,
+      bookingReference: booking.bookingReference,
+      amount: booking.totalAmount,
+      paymentId: razorpayPaymentId,
+      userName: booking.user?.name || 'Guest',
+    });
 
     return {
       success: true,
@@ -157,20 +176,44 @@ const paymentService = {
         payment.paidAt = new Date();
         await payment.save();
 
-        await Booking.findByIdAndUpdate(payment.booking, {
+        const booking = await Booking.findByIdAndUpdate(payment.booking, {
           paymentStatus: 'paid',
           status: 'confirmed',
-        });
+        }, { new: true }).populate('user', 'name');
+
+        if (booking) {
+          await notificationService.dispatchNotificationEvent('PAYMENT_SUCCESS', {
+            userId: booking.user._id,
+            bookingId: booking._id,
+            bookingReference: booking.bookingReference,
+            amount: booking.totalAmount,
+            paymentId,
+            userName: booking.user?.name || 'Guest',
+          });
+        }
       }
     } else if (event === 'payment.failed') {
       const paymentEntity = payload.payment?.entity;
       const orderId = paymentEntity?.order_id;
 
       if (orderId) {
-        await Payment.findOneAndUpdate(
+        const payment = await Payment.findOneAndUpdate(
           { providerOrderId: orderId },
-          { status: 'failed', failureReason: paymentEntity?.error_description || 'Payment failed' }
+          { status: 'failed', failureReason: paymentEntity?.error_description || 'Payment failed' },
+          { new: true }
         );
+
+        if (payment) {
+          const booking = await Booking.findById(payment.booking).populate('user', 'name');
+          if (booking) {
+            await notificationService.dispatchNotificationEvent('PAYMENT_FAILED', {
+              userId: booking.user._id,
+              bookingId: booking._id,
+              bookingReference: booking.bookingReference,
+              userName: booking.user?.name || 'Guest',
+            });
+          }
+        }
       }
     }
 

@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    notificationPreferences: {
+      emailBookingConfirmation: { type: Boolean, default: true },
+      emailPaymentUpdates: { type: Boolean, default: true },
+      emailCancellationUpdates: { type: Boolean, default: true },
+      emailManagerBookingUpdates: { type: Boolean, default: true },
+      inAppBookingUpdates: { type: Boolean, default: true },
+      inAppPaymentUpdates: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: true,

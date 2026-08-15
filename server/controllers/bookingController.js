@@ -5,6 +5,7 @@ const Hotel = require('../models/Hotel');
 const Room = require('../models/Room');
 const { checkRoomAvailability } = require('../services/availabilityService');
 const { calculateBookingPrice, normalizeDate } = require('../services/pricingService');
+const notificationService = require('../services/notificationService');
 
 // In-Memory Async Lock per Room to eliminate read-then-write race conditions
 const roomLocks = new Map();
@@ -234,8 +235,37 @@ const createBooking = async (req, res, next) => {
       const booking = await Booking.create(bookingData);
 
       const populatedBooking = await Booking.findById(booking._id)
-        .populate('hotel', 'name city location images')
+        .populate('hotel', 'name city location images owner')
         .populate('room', 'name type capacity pricePerNight');
+
+      // Await notification event dispatches so database records exist synchronously
+      await notificationService.dispatchNotificationEvent('BOOKING_CONFIRMED', {
+        userId: req.user._id,
+        bookingId: booking._id,
+        bookingReference,
+        hotelName: hotel.name,
+        cityName: hotel.city,
+        roomName: room.name,
+        userName: req.user.name,
+        checkIn: pricing.checkIn,
+        checkOut: pricing.checkOut,
+        totalAmount: pricing.totalAmount,
+      });
+
+      if (hotel.owner) {
+        await notificationService.dispatchNotificationEvent('MANAGER_NEW_BOOKING', {
+          recipientId: hotel.owner,
+          bookingId: booking._id,
+          bookingReference,
+          hotelName: hotel.name,
+          customerName: req.user.name,
+          customerEmail: req.user.email,
+          roomName: room.name,
+          checkIn: pricing.checkIn,
+          checkOut: pricing.checkOut,
+          totalAmount: pricing.totalAmount,
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -354,6 +384,26 @@ const cancelBooking = async (req, res, next) => {
     booking.cancellationReason = req.body.cancellationReason || 'Cancelled by customer';
 
     await booking.save();
+
+    const populated = await Booking.findById(booking._id).populate('hotel', 'name owner').populate('user', 'name');
+
+    // Await cancellation notification dispatches
+    await notificationService.dispatchNotificationEvent('BOOKING_CANCELLED', {
+      userId: booking.user,
+      bookingId: booking._id,
+      bookingReference: booking.bookingReference,
+      hotelName: populated.hotel?.name || 'Hotel',
+      userName: populated.user?.name || 'Guest',
+    });
+
+    if (populated.hotel?.owner) {
+      await notificationService.dispatchNotificationEvent('MANAGER_BOOKING_CANCELLED', {
+        recipientId: populated.hotel.owner,
+        bookingId: booking._id,
+        bookingReference: booking.bookingReference,
+        hotelName: populated.hotel.name,
+      });
+    }
 
     res.status(200).json({
       success: true,

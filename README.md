@@ -24,26 +24,27 @@ Nestly is a modern, high-performance hotel discovery, management, and booking pl
 - **Backend Ownership Verification**: Reusable middleware `verifyHotelOwnership` and `verifyRoomOwnership` ensuring managers can only modify hotels they own (`Hotel.owner === req.user._id`). Unauthorized requests return `403 Forbidden`.
 - **Soft Deactivation Strategy**: Deleting a property or room sets `status = 'inactive'`, retaining database document history for future booking/reporting analytics.
 - **Automatic Price Recalculation**: Creating, updating, or deactivating a room package automatically recalculates the hotel's `startingPrice` based on active room rates.
-- Manager Views: `ManagerDashboardPage` (overview metrics & property list), `HotelFormPage` (`/manager/hotels/new` & `/manager/hotels/:id/edit`), `ManagerHotelDetailsPage` (`/manager/hotels/:id`), and `RoomFormModal`.
-- Public Integration: Active hotels and available rooms automatically appear in public search and discovery (`/hotels`).
 
 ### Phase 4: Booking Engine & Double-Booking Prevention
 - **Date Overlap Algorithm**: Standard half-open date interval overlap query `(existingCheckIn < requestedCheckOut AND existingCheckOut > requestedCheckOut)` checking active bookings (`confirmed`, `pending`).
 - **Double-Booking & Concurrency Protection**: Per-room async mutex lock (`acquireRoomLock`) combined with MongoDB Session Transaction isolation, guaranteeing serial evaluation of room inventory during reservation creation. If inventory is depleted, conflicting requests return `409 Conflict`.
 - **Backend Pricing & Snapshot Engine**: Pure server-side pricing calculation (`subtotal = pricePerNight * nights * roomsBooked`, `taxes = 12%`). Permanent price snapshots are recorded on `Booking` documents, protecting historical reservations from future room rate alterations.
-- **Booking Reference Generator**: Generates human-readable unique reference codes (e.g. `NST-2026-X8K9L2`).
-- **Customer & Manager UI Flows**: `AvailabilityPicker` widget on `HotelDetailsPage`, `BookingReviewPage` (`/bookings/review`), `CustomerBookingsPage` (`/bookings`), `BookingDetailsPage` (`/bookings/:id`), and `ManagerBookingsPage` (`/manager/bookings`).
 
 ### Phase 5: Payment Integration (Razorpay Gateway Architecture)
 - **Payment Provider Abstraction**: Dedicated payment manager (`paymentService.js`) and gateway driver (`razorpayProvider.js`). Decouples business logic from provider details, supporting Razorpay by default and enabling future gateway additions (e.g., Stripe).
-- **Server-Side Amount Authority**: `POST /api/payments/create-order` accepts only `bookingId`. Reads `totalAmount` strictly from database `Booking` document and converts to subunits (`paise`). Client-submitted price overrides are strictly ignored.
-- **Cryptographic HMAC-SHA256 Signature Verification**: `POST /api/payments/verify` computes `HMAC-SHA256(razorpayOrderId + "|" + razorpayPaymentId, secret)` and compares against the payload. Forged signatures return `400 Bad Request`.
+- **Server-Side Amount Authority**: `POST /api/payments/create-order` accepts only `bookingId`. Reads `totalAmount` strictly from database `Booking` document.
+- **Cryptographic HMAC-SHA256 Signature Verification**: `POST /api/payments/verify` computes `HMAC-SHA256(razorpayOrderId + "|" + razorpayPaymentId, secret)` and compares against payload. Forged signatures return `400 Bad Request`.
 - **Webhook Listener Architecture**: `POST /api/payments/webhook` verifies `X-Razorpay-Signature` with `RAZORPAY_WEBHOOK_SECRET` and handles `payment.captured` & `payment.failed` events asynchronously.
-- **Idempotency & Duplicate Guard**: Re-sending payment verification or webhook triggers checks `payment.status === 'paid'` and returns existing payment records without duplicate processing or double-charging.
-- **Customer & Manager Payment UI**:
-  - `PaymentModal`: Razorpay Checkout integration with built-in test-mode sandbox simulation.
-  - `BookingDetailsPage` & `CustomerBookingsPage`: `Payment Status: Paid` emerald badge and `Pay Now` CTA for unpaid reservations.
-  - `ManagerBookingsPage`: Transaction visibility and payment status tracking across owned properties.
+
+### Phase 6: Notifications & Communication System
+- **Decoupled Notification Architecture**: Event-driven communication engine (`notificationService.js`, `emailService.js`, `notificationTemplates.js`). Isolates communication delivery from core booking/payment controllers, preparing the system for Phase 12 Redis + BullMQ queue workers.
+- **In-App Notification Engine ([Notification.js](file:///c:/Users/shari/OneDrive/Desktop/Nestly/server/models/Notification.js))**: Compound-indexed MongoDB model storing user-scoped notifications with read/unread tracking and deep link metadata.
+- **HTML Email Transport & Templates**: Clean HTML email compiler with Nodemailer transport (and built-in dev console logger fallback). Non-blocking wrapper ensures third-party email delivery failures never interrupt parent booking/payment transactions.
+- **User Notification Preferences ([User.js](file:///c:/Users/shari/OneDrive/Desktop/Nestly/server/models/User.js))**: Preference controls for email & in-app toggles (`emailBookingConfirmation`, `emailPaymentUpdates`, `emailCancellationUpdates`, `emailManagerBookingUpdates`, `inAppBookingUpdates`, `inAppPaymentUpdates`).
+- **Frontend Header Bell & Notification Center**:
+  - `Navbar`: Interactive Notification Bell `🔔` with unread count badge and quick dropdown preview.
+  - `NotificationsPage` (`/notifications`): Full notification history list, filters, "Mark All as Read", delete actions, and deep-link click navigation to `/bookings/:id`.
+  - `NotificationPreferencesPage` (`/settings/notifications`): User preferences configuration page.
 
 ---
 
@@ -53,40 +54,22 @@ All accounts use password: `password123`
 
 | Role | Email | Permissions |
 | :--- | :--- | :--- |
-| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, booking cancellation |
-| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring & payment visibility |
+| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing, availability checking, reservation creation, online payment, in-app & email notifications, booking cancellation |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, property reservation monitoring, manager event notifications |
 | **Admin** | `admin@example.com` | Platform administration & full property access |
 
 ---
 
 ## 🛠️ API Reference
 
-### Authentication Endpoints
-- `POST /api/auth/register` — Register customer account
-- `POST /api/auth/login` — User authentication & HTTP-only cookie issuance
-- `POST /api/auth/logout` — Invalidate session cookie
-- `GET /api/auth/me` — Fetch authenticated user profile
-
-### Hotel & Room Endpoints
-- `GET /api/hotels` — Public hotel discovery (Active hotels only)
-- `GET /api/hotels/:id` — Public hotel details & available rooms
-- `GET /api/hotels/manager/my-hotels` — Manager owned properties list (`protect`, `authorize('manager', 'admin')`)
-- `POST /api/hotels` — Create hotel property (`protect`, `authorize('manager', 'admin')`)
-
-### Booking Endpoints
-- `POST /api/bookings/quote` — Public server price quote calculation
-- `POST /api/bookings` — Create reservation (`protect`)
-- `GET /api/bookings/my` — Customer reservation history (`protect`)
-- `GET /api/bookings/:id` — View reservation receipt details (`protect`)
-- `POST /api/bookings/:id/cancel` — Cancel reservation & release inventory (`protect`)
-- `GET /api/bookings/manager/all` — Manager property reservations (`protect`, `authorize('manager', 'admin')`)
-
-### Payment Endpoints
-- `POST /api/payments/create-order` — Create gateway order using server amount authority (`protect`)
-- `POST /api/payments/verify` — Verify HMAC-SHA256 signature and mark reservation `paid` (`protect`)
-- `POST /api/payments/webhook` — Razorpay webhook listener (Public, verified via signature header)
-- `GET /api/payments/my` — Customer payment history (`protect`)
-- `GET /api/payments/manager/all` — Manager payment overview across owned properties (`protect`, `authorize('manager', 'admin')`)
+### Notification Endpoints
+- `GET /api/notifications` — Fetch authenticated user's notifications (`protect`)
+- `GET /api/notifications/unread-count` — Fetch unread count (`protect`)
+- `PATCH /api/notifications/:id/read` — Mark single notification as read (`protect`)
+- `PATCH /api/notifications/read-all` — Mark all user notifications as read (`protect`)
+- `DELETE /api/notifications/:id` — Delete notification (`protect`)
+- `GET /api/notifications/preferences` — Get notification preferences (`protect`)
+- `PUT /api/notifications/preferences` — Update notification preferences (`protect`)
 
 ---
 
@@ -118,6 +101,7 @@ cd server
 node test_api.js      # Phase 1: Discovery & Filter API Suite
 node test_auth.js     # Phase 2: Auth, JWT, Cookie & RBAC Suite
 node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
-node test_phase4.js   # Phase 4: Booking Engine & Concurrency Double-Booking Suite
-node test_phase5.js   # Phase 5: Payment Integration Security & Verification Suite
+node test_phase4.js   # Phase 4: Booking Engine & Concurrency Suite
+node test_phase5.js   # Phase 5: Payment Integration Security Suite
+node test_phase6.js   # Phase 6: Notifications & Communication Event Suite
 ```

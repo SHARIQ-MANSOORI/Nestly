@@ -11,6 +11,8 @@ import ProfilePage from './pages/ProfilePage';
 import BookingReviewPage from './pages/BookingReviewPage';
 import CustomerBookingsPage from './pages/CustomerBookingsPage';
 import BookingDetailsPage from './pages/BookingDetailsPage';
+import NotificationsPage from './pages/NotificationsPage';
+import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
 import ManagerDashboardPage from './pages/ManagerDashboardPage';
 import HotelFormPage from './pages/HotelFormPage';
 import ManagerHotelDetailsPage from './pages/ManagerHotelDetailsPage';
@@ -38,6 +40,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationPreferencesPage />
               </ProtectedRoute>
             }
           />

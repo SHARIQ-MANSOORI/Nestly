@@ -1,14 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble } from 'lucide-react';
+import { Building2, Menu, X, Compass, Home, MapPin, User, LogOut, Shield, Settings, LayoutDashboard, Calendar, BedDouble, Bell, CheckCircle2 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
+import notificationService from '../services/notificationService';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationsDropdownOpen, setNotificationsDropdownOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [recentNotifications, setRecentNotifications] = useState([]);
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
+
+  const fetchUnreadCount = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await notificationService.getUnreadCount();
+      setUnreadCount(res.unreadCount || 0);
+    } catch (e) {
+      // Quiet fail if network error
+    }
+  };
+
+  const fetchRecentNotifications = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await notificationService.getNotifications(1, 5);
+      setRecentNotifications(res.data || []);
+    } catch (e) {
+      // Quiet fail
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUnreadCount();
+      const interval = setInterval(fetchUnreadCount, 30000); // 30s poll
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, location.pathname]);
+
+  const handleToggleNotifications = () => {
+    setProfileDropdownOpen(false);
+    if (!notificationsDropdownOpen) {
+      fetchRecentNotifications();
+    }
+    setNotificationsDropdownOpen(!notificationsDropdownOpen);
+  };
 
   const isActive = (path) => {
     return location.pathname === path ? 'text-blue-700 font-semibold' : 'text-slate-600 hover:text-slate-900';
@@ -16,6 +57,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     setProfileDropdownOpen(false);
+    setNotificationsDropdownOpen(false);
     setMobileMenuOpen(false);
     await logout();
     navigate('/login');
@@ -63,91 +105,171 @@ const Navbar = () => {
         {/* Action Buttons & Auth Dropdown */}
         <div className="hidden md:flex items-center gap-4">
           {isAuthenticated ? (
-            <div className="relative">
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-              >
-                <img
-                  src={user?.profileImage || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
-                  alt={user?.name}
-                  className="w-8 h-8 rounded-lg object-cover"
-                />
-                <div className="text-left hidden sm:block pr-1">
-                  <span className="text-xs font-bold text-slate-900 block leading-tight">{user?.name}</span>
-                  <span className="text-[10px] text-blue-700 font-semibold uppercase">{roleLabels[user?.role] || 'User'}</span>
-                </div>
-              </button>
-
-              {/* Profile Dropdown Menu */}
-              {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 space-y-1 animate-fadeIn">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-                  </div>
-
-                  <Link
-                    to="/bookings"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                  >
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    My Reservations
-                  </Link>
-
-                  <Link
-                    to="/profile"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                  >
-                    <Settings className="w-4 h-4 text-slate-400" />
-                    Account Settings
-                  </Link>
-
-                  {(user?.role === 'manager' || user?.role === 'admin') && (
-                    <>
-                      <Link
-                        to="/manager"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                      >
-                        <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                        Manager Properties
-                      </Link>
-                      <Link
-                        to="/manager/bookings"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-                      >
-                        <BedDouble className="w-4 h-4 text-purple-600" />
-                        Manager Bookings
-                      </Link>
-                    </>
+            <div className="flex items-center gap-3">
+              
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={handleToggleNotifications}
+                  className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors relative"
+                  title="Notifications"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white font-bold text-[10px] rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
                   )}
+                </button>
 
-                  {user?.role === 'admin' && (
+                {/* Notifications Dropdown Preview */}
+                {notificationsDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 py-3 space-y-2 animate-fadeIn z-50">
+                    <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
+                      <Link
+                        to="/notifications"
+                        onClick={() => setNotificationsDropdownOpen(false)}
+                        className="text-[11px] font-bold text-blue-700 hover:underline"
+                      >
+                        View All
+                      </Link>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
+                      {recentNotifications.length === 0 ? (
+                        <p className="text-xs text-slate-400 text-center py-6">No notifications yet</p>
+                      ) : (
+                        recentNotifications.map((n) => (
+                          <Link
+                            key={n._id}
+                            to="/notifications"
+                            onClick={() => setNotificationsDropdownOpen(false)}
+                            className={`block p-3 hover:bg-slate-50 transition-colors text-xs ${!n.isRead ? 'bg-blue-50/40' : ''}`}
+                          >
+                            <span className="font-bold text-slate-900 block truncate">{n.title}</span>
+                            <span className="text-[11px] text-slate-500 line-clamp-2">{n.message}</span>
+                            <span className="text-[10px] text-slate-400 mt-1 block">
+                              {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="px-4 pt-2 border-t border-slate-100 text-center">
+                      <Link
+                        to="/settings/notifications"
+                        onClick={() => setNotificationsDropdownOpen(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-800"
+                      >
+                        Notification Settings
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* User Profile Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setNotificationsDropdownOpen(false);
+                    setProfileDropdownOpen(!profileDropdownOpen);
+                  }}
+                  className="flex items-center gap-2.5 p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                >
+                  <img
+                    src={user?.profileImage || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
+                    alt={user?.name}
+                    className="w-8 h-8 rounded-lg object-cover"
+                  />
+                  <div className="text-left hidden sm:block pr-1">
+                    <span className="text-xs font-bold text-slate-900 block leading-tight">{user?.name}</span>
+                    <span className="text-[10px] text-blue-700 font-semibold uppercase">{roleLabels[user?.role] || 'User'}</span>
+                  </div>
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {profileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 space-y-1 animate-fadeIn z-50">
+                    <div className="px-4 py-2 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                    </div>
+
                     <Link
-                      to="/admin"
+                      to="/notifications"
                       onClick={() => setProfileDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
                     >
-                      <Shield className="w-4 h-4 text-emerald-600" />
-                      Admin Dashboard
+                      <Bell className="w-4 h-4 text-blue-600" />
+                      Notifications {unreadCount > 0 && `(${unreadCount})`}
                     </Link>
-                  )}
 
-                  <div className="border-t border-slate-100 pt-1">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 font-medium text-left"
+                    <Link
+                      to="/bookings"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
                     >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out
-                    </button>
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      My Reservations
+                    </Link>
+
+                    <Link
+                      to="/settings/notifications"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                    >
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      Notification Settings
+                    </Link>
+
+                    {(user?.role === 'manager' || user?.role === 'admin') && (
+                      <>
+                        <Link
+                          to="/manager"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-purple-600" />
+                          Manager Properties
+                        </Link>
+                        <Link
+                          to="/manager/bookings"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                        >
+                          <BedDouble className="w-4 h-4 text-purple-600" />
+                          Manager Bookings
+                        </Link>
+                      </>
+                    )}
+
+                    {user?.role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                      >
+                        <Shield className="w-4 h-4 text-emerald-600" />
+                        Admin Dashboard
+                      </Link>
+                    )}
+
+                    <div className="border-t border-slate-100 pt-1">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 font-medium text-left"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -206,6 +328,22 @@ const Navbar = () => {
                 </div>
 
                 <Link
+                  to="/notifications"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-blue-600" />
+                    Notifications
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="bg-blue-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+
+                <Link
                   to="/bookings"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
@@ -215,12 +353,12 @@ const Navbar = () => {
                 </Link>
 
                 <Link
-                  to="/profile"
+                  to="/settings/notifications"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-100 font-medium"
                 >
                   <Settings className="w-4 h-4 text-slate-500" />
-                  Account Settings
+                  Notification Settings
                 </Link>
 
                 {(user?.role === 'manager' || user?.role === 'admin') && (
