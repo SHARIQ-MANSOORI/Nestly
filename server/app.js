@@ -1,19 +1,25 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const errorHandler = require('./middleware/errorHandler');
 
 const hotelRoutes = require('./routes/hotelRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
 // Security Middleware
 app.use(helmet());
 
-// Enable CORS
+// Enable Cookie Parser
+app.use(cookieParser());
+
+// Enable CORS with credentials support for HTTP-only cookies
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: clientUrl,
   credentials: true,
 }));
 
@@ -31,6 +37,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mounting API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/rooms', roomRoutes);
 

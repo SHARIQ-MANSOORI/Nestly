@@ -2,20 +2,39 @@
 
 **Nestly** is a minimal, modern, and trustworthy hotel discovery and booking platform built with the MERN stack.
 
-Phase 1 focuses on the **customer-facing discovery experience**, modular backend architecture, foundational database schemas, seed data, and a clean hospitality design system.
+- **Phase 1**: Customer-facing hotel discovery experience, search/filter/sort capabilities, Mongoose database schemas, and realistic seed data.
+- **Phase 2 (Current)**: Secure authentication, bcrypt password hashing, JWT via HTTP-only cookies, profile management, protected routes, and Role-Based Access Control (RBAC) for **Customer**, **Manager**, and **Admin** accounts.
 
 ---
 
-## 🚀 Features (Phase 1 — MERN Foundation)
+## 🚀 Features
 
+### Phase 1 — MERN Foundation
 - **Hospitality UI/UX Design System**: Minimal, clean, calm navy/slate palette built with Tailwind CSS. Responsive across Desktop, Tablet, and Mobile.
 - **Home Page (`/`)**: Hero destination search bar, featured hotels, top destinations (Delhi, Mumbai, Goa, Bengaluru, Jaipur), and customer trust highlights.
 - **Hotel Listing (`/hotels`, `/search`)**: Server-driven keyword search, city filtering, price range presets, star rating filtering, and sorting (Price Low/High, Rating, Newest).
 - **Hotel Details (`/hotels/:id`)**: Photo gallery with thumbnail selection, full hotel description, popular amenities list, and available room packages.
 - **Room Cards & Booking Notice**: Detailed room cards with guest capacity, room amenities, and price per night, with an interactive Phase 4 notice modal when clicking "Book Now".
-- **Modular REST API**: Clean Express controllers, services, models, and routes with Helmet security middleware, CORS, and centralized error handling.
-- **Mongoose Database Schemas**: Production-ready schemas for `User`, `Hotel`, `Room`, `Booking`, `Review`, and `Payment` ready for future phase extensions.
-- **Automated Database Seeding**: Pre-populated script featuring 12 realistic hotels across major cities with Unsplash photos, ratings, amenities, and room templates.
+
+### Phase 2 — Authentication & Authorization
+- **Security & Password Hashing**: Passwords encrypted with `bcryptjs` (salt factor 10) in `pre('save')` hooks; `select: false` by default on queries.
+- **HTTP-Only Cookie Authentication**: JWT tokens signed and transmitted via secure `httpOnly` cookies (`nestly_token`), shielding tokens from XSS/client-side access.
+- **Public Registration Guard**: Registration strictly forces the `customer` role to eliminate privilege escalation vectors.
+- **Role-Based Access Control (RBAC)**: Backend middleware (`protect` & `authorize`) enforcing role permissions (`customer`, `manager`, `admin`).
+- **Profile & Security**: `/profile` page supporting name/avatar edits and current password verification + new password hashing.
+- **Protected Dashboards**: Protected UI placeholders `/manager` (for Managers/Admins) and `/admin` (for Admins only).
+
+---
+
+## 👥 Local Development Test Accounts
+
+Pre-seeded via `npm run seed` with local test credentials:
+
+| Role | Email | Password | Access Rights |
+| :--- | :--- | :--- | :--- |
+| **Customer** | `customer@example.com` | `password123` | Hotel discovery, search, view profile, change password |
+| **Manager** | `manager@example.com` | `password123` | Customer rights + `/manager` dashboard |
+| **Admin** | `admin@example.com` | `password123` | Full access + `/admin` & `/manager` dashboards |
 
 ---
 
@@ -24,97 +43,22 @@ Phase 1 focuses on the **customer-facing discovery experience**, modular backend
 ### Frontend
 - **Framework**: React 18 + Vite
 - **Routing**: React Router DOM v6
+- **State & Auth Context**: React Context (`AuthContext` & `useAuth`)
 - **Styling**: Tailwind CSS + Custom Hospitality Palette
 - **Icons**: Lucide React
-- **HTTP Client**: Axios
+- **HTTP Client**: Axios (`withCredentials: true`)
 
 ### Backend
 - **Runtime**: Node.js + Express.js
 - **Database**: MongoDB + Mongoose ODM
-- **Middleware**: Helmet, CORS, Centralized Error Middleware
+- **Security**: bcryptjs, jsonwebtoken, cookie-parser, Helmet, CORS
 - **Environment**: dotenv
-
----
-
-## 📁 Project Architecture & Directory Structure
-
-```text
-Nestly/
-├── client/
-│   ├── public/
-│   ├── src/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── Footer.jsx
-│   │   │   ├── SearchBar.jsx
-│   │   │   ├── HotelCard.jsx
-│   │   │   ├── RoomCard.jsx
-│   │   │   ├── FilterSidebar.jsx
-│   │   │   ├── SortDropdown.jsx
-│   │   │   ├── ImageGallery.jsx
-│   │   │   ├── LoadingSkeleton.jsx
-│   │   │   ├── EmptyState.jsx
-│   │   │   ├── ErrorAlert.jsx
-│   │   │   └── BookingNoticeModal.jsx
-│   │   ├── layouts/
-│   │   │   └── MainLayout.jsx
-│   │   ├── pages/
-│   │   │   ├── HomePage.jsx
-│   │   │   ├── HotelListingPage.jsx
-│   │   │   ├── HotelDetailsPage.jsx
-│   │   │   └── NotFoundPage.jsx
-│   │   ├── services/
-│   │   │   ├── api.js
-│   │   │   └── hotelService.js
-│   │   ├── utils/
-│   │   │   └── formatters.js
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.js
-│
-├── server/
-│   ├── config/
-│   │   └── db.js
-│   ├── controllers/
-│   │   ├── hotelController.js
-│   │   └── roomController.js
-│   ├── middleware/
-│   │   └── errorHandler.js
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Hotel.js
-│   │   ├── Room.js
-│   │   ├── Booking.js
-│   │   ├── Review.js
-│   │   └── Payment.js
-│   ├── routes/
-│   │   ├── hotelRoutes.js
-│   │   └── roomRoutes.js
-│   ├── seed.js
-│   ├── app.js
-│   ├── server.js
-│   └── package.json
-│
-├── .env.example
-├── .gitignore
-├── README.md
-└── package.json
-```
 
 ---
 
 ## ⚡ Quick Start & Setup Instructions
 
-### 1. Prerequisites
-- Node.js (v18 or higher)
-- npm (v9 or higher)
-- MongoDB (Local instance or MongoDB Atlas URI)
-
-### 2. Installation
+### 1. Installation
 Install all dependencies for root, server, and client:
 
 ```bash
@@ -122,7 +66,7 @@ Install all dependencies for root, server, and client:
 npm run setup
 ```
 
-### 3. Environment Variables
+### 2. Environment Variables
 Copy `.env.example` to `.env`:
 
 ```bash
@@ -135,16 +79,19 @@ PORT=5000
 MONGODB_URI=mongodb://127.0.0.1:27017/nestly
 CLIENT_URL=http://localhost:5173
 VITE_API_BASE_URL=http://localhost:5000/api
+JWT_SECRET=nestly_jwt_secret_dev_key_2026_change_in_production
+JWT_EXPIRES_IN=7d
+COOKIE_NAME=nestly_token
 ```
 
-### 4. Database Seeding
-Populate the database with realistic demo hotels, rooms, and images:
+### 3. Database Seeding
+Populate the database with demo hotels, rooms, and test users:
 
 ```bash
 npm run seed
 ```
 
-### 5. Running the Application
+### 4. Running the Application
 To run both backend and frontend concurrently:
 
 ```bash
@@ -166,23 +113,22 @@ Open `http://localhost:5173` in your browser.
 
 ## 🔌 API Documentation Overview
 
-### Health Endpoint
-- `GET /api/health` — API service health check
+### Authentication API
+- `POST /api/auth/register` — Register customer account
+- `POST /api/auth/login` — Sign in & receive HTTP-only JWT cookie
+- `POST /api/auth/logout` — Invalidate authentication cookie
+- `GET /api/auth/me` — Fetch authenticated user profile (Protected)
+- `PUT /api/auth/profile` — Update name / profile image (Protected)
+- `PUT /api/auth/change-password` — Verify current & update password (Protected)
+- `GET /api/auth/manager-area` — Manager/Admin protected test route (Protected)
+- `GET /api/auth/admin-area` — Admin protected test route (Protected)
 
-### Hotels
-- `GET /api/hotels` — Fetch all hotels. Accepts query parameters:
-  - `location` (string)
-  - `search` (keyword)
-  - `minPrice` (number)
-  - `maxPrice` (number)
-  - `minRating` (number)
-  - `sort` (`price_asc` | `price_desc` | `rating_desc` | `newest`)
-- `GET /api/hotels/:id` — Get single hotel details with available rooms
-- `POST /api/hotels` — Create new hotel (Foundation)
-- `PUT /api/hotels/:id` — Update hotel details (Foundation)
-- `DELETE /api/hotels/:id` — Remove hotel (Foundation)
+### Hotels API
+- `GET /api/hotels` — Fetch hotels with search, city, price range, rating filters, and sorting
+- `GET /api/hotels/:id` — Get single hotel details with rooms
+- `POST /api/hotels`, `PUT /api/hotels/:id`, `DELETE /api/hotels/:id` — Manager foundation
 
-### Rooms
+### Rooms API
 - `GET /api/hotels/:hotelId/rooms` — Fetch rooms for specific hotel
 - `GET /api/rooms/:id` — Fetch single room details
 
@@ -191,8 +137,8 @@ Open `http://localhost:5173` in your browser.
 ## 🗺️ Project Roadmap
 
 ```text
-Phase 1  → MERN Foundation       [Current]
-Phase 2  → Authentication (JWT & Password Hashing)
+Phase 1  → MERN Foundation                       [Completed]
+Phase 2  → Authentication & Authorization (RBAC) [Completed]
 Phase 3  → Hotel Management (Manager Portal)
 Phase 4  → Booking Engine & Availability Lock
 Phase 5  → Payments Integration (Razorpay / Stripe)

@@ -234,15 +234,6 @@ const roomTemplates = [
     capacity: 4,
     amenities: ['Private Jacuzzi', 'Wrap-around Deck', 'Butler Service', 'Dining Area', 'Walk-in Closet', 'Premium Audio'],
     images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800']
-  },
-  {
-    name: 'Comfort Standard Room',
-    description: 'Cozy queen-size room equipped with ergonomic desk, high-speed fiber internet, and premium cotton bedding for a peaceful stay.',
-    type: 'Standard',
-    priceMultiplier: 0.8,
-    capacity: 2,
-    amenities: ['Queen Bed', 'Fiber Wi-Fi', 'Air Conditioning', 'Safe Box', 'En-suite Bathroom'],
-    images: ['https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&q=80&w=800']
   }
 ];
 
@@ -260,24 +251,43 @@ const seedDatabase = async (exitOnComplete = true) => {
     await Review.deleteMany({});
     await Payment.deleteMany({});
 
-    console.log('[Seed] Creating demo user accounts...');
-    const demoOwner = await User.create({
-      name: 'Sarah Jenkins (Hotel Manager)',
-      email: 'sarah.manager@nestly.com',
-      password: 'password123', // Hashed in Phase 2
+    console.log('[Seed] Creating demo user accounts for Phase 2 (Customer, Manager, Admin)...');
+    
+    // Controlled local development test credentials
+    const demoCustomer = await User.create({
+      name: 'John Customer',
+      email: 'customer@example.com',
+      password: 'password123',
+      role: 'customer',
+    });
+
+    const demoManager = await User.create({
+      name: 'Sarah Manager',
+      email: 'manager@example.com',
+      password: 'password123',
       role: 'manager',
     });
+
+    const demoAdmin = await User.create({
+      name: 'Alex Admin',
+      email: 'admin@example.com',
+      password: 'password123',
+      role: 'admin',
+    });
+
+    console.log(`[Seed] Created test users:
+      - Customer: customer@example.com / password123
+      - Manager:  manager@example.com  / password123
+      - Admin:    admin@example.com    / password123`);
 
     console.log('[Seed] Creating hotels & rooms...');
     for (const hData of sampleHotels) {
       const hotel = await Hotel.create({
         ...hData,
-        owner: demoOwner._id,
+        owner: demoManager._id,
       });
 
-      // Create 3 rooms per hotel based on templates
-      const selectedTemplates = [roomTemplates[0], roomTemplates[1], roomTemplates[2]];
-      for (const tpl of selectedTemplates) {
+      for (const tpl of roomTemplates) {
         await Room.create({
           hotel: hotel._id,
           name: `${hotel.name} - ${tpl.name}`,
@@ -292,7 +302,7 @@ const seedDatabase = async (exitOnComplete = true) => {
       }
     }
 
-    console.log('[Seed] Seed completed successfully!');
+    console.log('[Seed] Phase 2 Seed completed successfully!');
     if (exitOnComplete) {
       process.exit(0);
     }
