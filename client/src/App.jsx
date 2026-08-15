@@ -9,6 +9,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import ManagerDashboardPage from './pages/ManagerDashboardPage';
+import HotelFormPage from './pages/HotelFormPage';
+import ManagerHotelDetailsPage from './pages/ManagerHotelDetailsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -18,7 +20,7 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<MainLayout />}>
-          {/* Public Routes */}
+          {/* Public Customer Routes */}
           <Route index element={<HomePage />} />
           <Route path="hotels" element={<HotelListingPage />} />
           <Route path="hotels/:id" element={<HotelDetailsPage />} />
@@ -42,6 +44,38 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['manager', 'admin']}>
                 <ManagerDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/hotels"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <ManagerDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/hotels/new"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <HotelFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/hotels/:id"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <ManagerHotelDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager/hotels/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={['manager', 'admin']}>
+                <HotelFormPage />
               </ProtectedRoute>
             }
           />

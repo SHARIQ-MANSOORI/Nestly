@@ -11,6 +11,12 @@ const hotelSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Hotel description is required'],
     },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Hotel owner is required'],
+      index: true,
+    },
     location: {
       type: String,
       required: [true, 'Detailed location string is required'],
@@ -27,6 +33,13 @@ const hotelSchema = new mongoose.Schema(
       required: [true, 'Country is required'],
       default: 'India',
       trim: true,
+    },
+    addressDetails: {
+      address: { type: String, default: '' },
+      city: { type: String, default: '' },
+      state: { type: String, default: '' },
+      country: { type: String, default: 'India' },
+      postalCode: { type: String, default: '' },
     },
     images: {
       type: [String],
@@ -50,14 +63,15 @@ const hotelSchema = new mongoose.Schema(
     },
     startingPrice: {
       type: Number,
-      required: [true, 'Starting price per night is required'],
+      default: 0,
       min: 0,
       index: true,
     },
-    owner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: false, // Optional in Phase 1 seed
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'pending'],
+      default: 'active',
+      index: true,
     },
   },
   {
@@ -65,7 +79,7 @@ const hotelSchema = new mongoose.Schema(
   }
 );
 
-// Compound indexes for search optimization
-hotelSchema.index({ name: 'text', city: 'text', location: 'text' });
+// Compound text index for search optimization
+hotelSchema.index({ name: 'text', city: 'text', location: 'text', description: 'text' });
 
 module.exports = mongoose.model('Hotel', hotelSchema);

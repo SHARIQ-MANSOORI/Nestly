@@ -1,157 +1,99 @@
-# Nestly — Production-Oriented Hotel Discovery & Booking Platform
+# Nestly — Production-Oriented Hotel Booking & Management Platform
 
-**Nestly** is a minimal, modern, and trustworthy hotel discovery and booking platform built with the MERN stack.
-
-- **Phase 1**: Customer-facing hotel discovery experience, search/filter/sort capabilities, Mongoose database schemas, and realistic seed data.
-- **Phase 2 (Current)**: Secure authentication, bcrypt password hashing, JWT via HTTP-only cookies, profile management, protected routes, and Role-Based Access Control (RBAC) for **Customer**, **Manager**, and **Admin** accounts.
+Nestly is a modern, high-performance hotel discovery and management platform built on the **MERN Stack** (MongoDB, Express, React, Node.js).
 
 ---
 
-## 🚀 Features
+## 🚀 Implemented Phases
 
-### Phase 1 — MERN Foundation
-- **Hospitality UI/UX Design System**: Minimal, clean, calm navy/slate palette built with Tailwind CSS. Responsive across Desktop, Tablet, and Mobile.
-- **Home Page (`/`)**: Hero destination search bar, featured hotels, top destinations (Delhi, Mumbai, Goa, Bengaluru, Jaipur), and customer trust highlights.
-- **Hotel Listing (`/hotels`, `/search`)**: Server-driven keyword search, city filtering, price range presets, star rating filtering, and sorting (Price Low/High, Rating, Newest).
-- **Hotel Details (`/hotels/:id`)**: Photo gallery with thumbnail selection, full hotel description, popular amenities list, and available room packages.
-- **Room Cards & Booking Notice**: Detailed room cards with guest capacity, room amenities, and price per night, with an interactive Phase 4 notice modal when clicking "Book Now".
+### Phase 1: MERN Foundation
+- Clean, calm hospitality UI/UX built with React 18, Vite, React Router DOM v6, and Tailwind CSS.
+- RESTful API endpoints for hotel discovery, keyword search, location filtering, price ranges, ratings, and sorting.
+- Responsive customer views: `HomePage`, `HotelListingPage`, `HotelDetailsPage`, search bar, room cards, image gallery, and filters.
+- Robust Mongoose models: `User`, `Hotel`, `Room`, `Booking`, `Review`, `Payment`.
 
-### Phase 2 — Authentication & Authorization
-- **Security & Password Hashing**: Passwords encrypted with `bcryptjs` (salt factor 10) in `pre('save')` hooks; `select: false` by default on queries.
-- **HTTP-Only Cookie Authentication**: JWT tokens signed and transmitted via secure `httpOnly` cookies (`nestly_token`), shielding tokens from XSS/client-side access.
-- **Public Registration Guard**: Registration strictly forces the `customer` role to eliminate privilege escalation vectors.
-- **Role-Based Access Control (RBAC)**: Backend middleware (`protect` & `authorize`) enforcing role permissions (`customer`, `manager`, `admin`).
-- **Profile & Security**: `/profile` page supporting name/avatar edits and current password verification + new password hashing.
-- **Protected Dashboards**: Protected UI placeholders `/manager` (for Managers/Admins) and `/admin` (for Admins only).
+### Phase 2: Authentication & Authorization (RBAC)
+- Secure password hashing with `bcryptjs` (salt factor 10) and `select: false` password protection.
+- Secure session management via JWT tokens stored in **HTTP-only cookies** (`nestly_token`).
+- `protect` middleware verifying tokens and `authorize` middleware enforcing Role-Based Access Control (`customer`, `manager`, `admin`).
+- Public registration guard enforcing `role = customer` to prevent role escalation.
+- Auth views: `LoginPage` (with quick-fill demo credentials), `RegisterPage`, `ProfilePage`, `ManagerDashboardPage`, `AdminDashboardPage`.
 
----
-
-## 👥 Local Development Test Accounts
-
-Pre-seeded via `npm run seed` with local test credentials:
-
-| Role | Email | Password | Access Rights |
-| :--- | :--- | :--- | :--- |
-| **Customer** | `customer@example.com` | `password123` | Hotel discovery, search, view profile, change password |
-| **Manager** | `manager@example.com` | `password123` | Customer rights + `/manager` dashboard |
-| **Admin** | `admin@example.com` | `password123` | Full access + `/admin` & `/manager` dashboards |
+### Phase 3: Hotel & Room Management (Manager Portal)
+- Authenticated **Manager Portal** (`/manager`) allowing property owners to create, view, edit, and deactivate hotels and room packages.
+- **Backend Ownership Verification**: Reusable middleware `verifyHotelOwnership` and `verifyRoomOwnership` ensuring managers can only modify hotels they own (`Hotel.owner === req.user._id`). Unauthorized requests return `403 Forbidden`.
+- **Soft Deactivation Strategy**: Deleting a property or room sets `status = 'inactive'`, retaining database document history for future booking/reporting analytics.
+- **Automatic Price Recalculation**: Creating, updating, or deactivating a room package automatically recalculates the hotel's `startingPrice` based on active room rates.
+- Manager Views: `ManagerDashboardPage` (overview metrics & property list), `HotelFormPage` (`/manager/hotels/new` & `/manager/hotels/:id/edit`), `ManagerHotelDetailsPage` (`/manager/hotels/:id`), and `RoomFormModal`.
+- Public Integration: Active hotels and available rooms automatically appear in public search and discovery (`/hotels`).
 
 ---
 
-## 🛠️ Technology Stack
+## 🔑 Demo Test Accounts
 
-### Frontend
-- **Framework**: React 18 + Vite
-- **Routing**: React Router DOM v6
-- **State & Auth Context**: React Context (`AuthContext` & `useAuth`)
-- **Styling**: Tailwind CSS + Custom Hospitality Palette
-- **Icons**: Lucide React
-- **HTTP Client**: Axios (`withCredentials: true`)
+All accounts use password: `password123`
 
-### Backend
-- **Runtime**: Node.js + Express.js
-- **Database**: MongoDB + Mongoose ODM
-- **Security**: bcryptjs, jsonwebtoken, cookie-parser, Helmet, CORS
-- **Environment**: dotenv
+| Role | Email | Permissions |
+| :--- | :--- | :--- |
+| **Customer** | `customer@example.com` | Hotel discovery, search, filtering, room viewing |
+| **Manager** | `manager@example.com` | Hotel property CRUD, room inventory management, starting rate calculation |
+| **Admin** | `admin@example.com` | Platform administration & full property access |
 
 ---
 
-## ⚡ Quick Start & Setup Instructions
+## 🛠️ API Reference
 
-### 1. Installation
-Install all dependencies for root, server, and client:
-
-```bash
-# From the root directory
-npm run setup
-```
-
-### 2. Environment Variables
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Default environment variables:
-```env
-PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/nestly
-CLIENT_URL=http://localhost:5173
-VITE_API_BASE_URL=http://localhost:5000/api
-JWT_SECRET=nestly_jwt_secret_dev_key_2026_change_in_production
-JWT_EXPIRES_IN=7d
-COOKIE_NAME=nestly_token
-```
-
-### 3. Database Seeding
-Populate the database with demo hotels, rooms, and test users:
-
-```bash
-npm run seed
-```
-
-### 4. Running the Application
-To run both backend and frontend concurrently:
-
-```bash
-npm run dev
-```
-
-Or run them individually:
-```bash
-# Start backend API (Port 5000)
-npm run server
-
-# Start frontend Vite dev server (Port 5173)
-npm run client
-```
-
-Open `http://localhost:5173` in your browser.
-
----
-
-## 🔌 API Documentation Overview
-
-### Authentication API
+### Authentication Endpoints
 - `POST /api/auth/register` — Register customer account
-- `POST /api/auth/login` — Sign in & receive HTTP-only JWT cookie
-- `POST /api/auth/logout` — Invalidate authentication cookie
-- `GET /api/auth/me` — Fetch authenticated user profile (Protected)
-- `PUT /api/auth/profile` — Update name / profile image (Protected)
-- `PUT /api/auth/change-password` — Verify current & update password (Protected)
-- `GET /api/auth/manager-area` — Manager/Admin protected test route (Protected)
-- `GET /api/auth/admin-area` — Admin protected test route (Protected)
+- `POST /api/auth/login` — User authentication & HTTP-only cookie issuance
+- `POST /api/auth/logout` — Invalidate session cookie
+- `GET /api/auth/me` — Fetch authenticated user profile
+- `PUT /api/auth/profile` — Update name & avatar
+- `PUT /api/auth/change-password` — Change password
 
-### Hotels API
-- `GET /api/hotels` — Fetch hotels with search, city, price range, rating filters, and sorting
-- `GET /api/hotels/:id` — Get single hotel details with rooms
-- `POST /api/hotels`, `PUT /api/hotels/:id`, `DELETE /api/hotels/:id` — Manager foundation
+### Hotel Endpoints
+- `GET /api/hotels` — Public hotel discovery (Active hotels only)
+- `GET /api/hotels/:id` — Public hotel details & available rooms
+- `GET /api/hotels/manager/my-hotels` — Manager owned properties list (`protect`, `authorize('manager', 'admin')`)
+- `POST /api/hotels` — Create hotel property (`protect`, `authorize('manager', 'admin')`)
+- `PUT /api/hotels/:id` — Edit hotel property (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
+- `DELETE /api/hotels/:id` — Soft deactivate hotel (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
 
-### Rooms API
-- `GET /api/hotels/:hotelId/rooms` — Fetch rooms for specific hotel
-- `GET /api/rooms/:id` — Fetch single room details
+### Room Endpoints
+- `GET /api/hotels/:hotelId/rooms` — Public room options
+- `GET /api/rooms/:id` — Public room details
+- `POST /api/hotels/:hotelId/rooms` — Add room package (`protect`, `authorize('manager', 'admin')`, `verifyHotelOwnership`)
+- `PUT /api/rooms/:id` — Update room package (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
+- `DELETE /api/rooms/:id` — Soft deactivate room (`protect`, `authorize('manager', 'admin')`, `verifyRoomOwnership`)
 
 ---
 
-## 🗺️ Project Roadmap
+## 💻 Quick Start & Running Locally
 
-```text
-Phase 1  → MERN Foundation                       [Completed]
-Phase 2  → Authentication & Authorization (RBAC) [Completed]
-Phase 3  → Hotel Management (Manager Portal)
-Phase 4  → Booking Engine & Availability Lock
-Phase 5  → Payments Integration (Razorpay / Stripe)
-Phase 6  → Notifications & Email Service
-Phase 7  → Revenue & Admin Dashboards
-Phase 8  → User Reviews & Ratings Submission
-Phase 9  → Security Hardening & Rate Limiting
-Phase 10 → Automated End-to-End Testing
-Phase 11 → Redis Caching Layer
-Phase 12 → Background Workers & BullMQ
-Phase 13 → Docker Containerization
-Phase 14 → CI/CD Deployment Pipelines
-Phase 15 → AWS Cloud Infrastructure
-Phase 16 → Monitoring & Observability (Prometheus / Grafana)
-Phase 17 → Global Scalability & CDN
+### 1. Start Express Backend
+```bash
+cd server
+npm install
+npm run seed     # Populate database with demo accounts, hotels, and rooms
+npm start        # Launches backend server on http://localhost:5000
+```
+
+### 2. Start Vite Frontend
+```bash
+cd client
+npm install
+npm run dev      # Launches Vite frontend dev server on http://localhost:5173
+```
+
+---
+
+## 🧪 Verification & Testing Suites
+
+To run automated backend verification suites:
+
+```bash
+cd server
+node test_api.js      # Phase 1: Discovery & Filter API Suite
+node test_auth.js     # Phase 2: Auth, JWT, Cookie & RBAC Suite
+node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
 ```

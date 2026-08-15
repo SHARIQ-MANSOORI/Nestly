@@ -3,22 +3,33 @@ const router = express.Router();
 const {
   getHotels,
   getHotelById,
+  getManagerHotels,
   createHotel,
   updateHotel,
   deleteHotel,
 } = require('../controllers/hotelController');
-const { getRoomsByHotel } = require('../controllers/roomController');
+const { getRoomsByHotel, createRoom } = require('../controllers/roomController');
+const { protect } = require('../middleware/authenticate');
+const { authorize } = require('../middleware/authorize');
+const { verifyHotelOwnership } = require('../middleware/verifyOwnership');
 
+// Manager routes (placed BEFORE parametric :id routes to prevent conflict)
+router.get('/manager/my-hotels', protect, authorize('manager', 'admin'), getManagerHotels);
+
+// Public hotel routes & Manager Creation
 router.route('/')
   .get(getHotels)
-  .post(createHotel);
+  .post(protect, authorize('manager', 'admin'), createHotel);
 
+// Parametric hotel routes with Ownership Guard
 router.route('/:id')
   .get(getHotelById)
-  .put(updateHotel)
-  .delete(deleteHotel);
+  .put(protect, authorize('manager', 'admin'), verifyHotelOwnership, updateHotel)
+  .delete(protect, authorize('manager', 'admin'), verifyHotelOwnership, deleteHotel);
 
+// Room creation under owned hotel
 router.route('/:hotelId/rooms')
-  .get(getRoomsByHotel);
+  .get(getRoomsByHotel)
+  .post(protect, authorize('manager', 'admin'), verifyHotelOwnership, createRoom);
 
 module.exports = router;
