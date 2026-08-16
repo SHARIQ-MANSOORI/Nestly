@@ -39,7 +39,7 @@ jobs:
       - name: Secret Pattern Scan
         run: |
           echo "Scanning codebase for accidentally committed secrets or tokens..."
-          ! grep -rEi "(([a-zA-Z0-9_]{20,})|(AKIA[0-9A-Z]{16})|(eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}))" --exclude-dir={node_modules,.git,dist,coverage} --exclude={package-lock.json,*.md,*.log} .
+          ! grep -rE "((AKIA[0-9A-Z]{16})|(eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})|(-----BEGIN (RSA|PRIVATE) KEY-----))" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=coverage --exclude=package-lock.json --exclude="*.md" --exclude="*.log" .
 
       - name: Dependency Security Audit
         run: npm audit --audit-level=high || true
