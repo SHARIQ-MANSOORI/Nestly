@@ -1,6 +1,5 @@
 const Booking = require('../models/Booking');
 const Review = require('../models/Review');
-const Hotel = require('../models/Hotel');
 
 const reviewEligibilityService = {
   /**

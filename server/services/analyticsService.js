@@ -1,9 +1,9 @@
-const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Payment = require('../models/Payment');
 const Hotel = require('../models/Hotel');
 const Room = require('../models/Room');
 const User = require('../models/User');
+const cacheService = require('./cacheService');
 
 /**
  * Date Range Helper: Converts filter preset or custom dates to JavaScript Date objects
@@ -65,39 +65,42 @@ const getDateRangeBoundaries = (filter = '30d', fromStr = null, toStr = null) =>
 const analyticsService = {
   // Manager Overview Analytics
   getManagerOverview: async (managerId, filter = '30d', fromStr = null, toStr = null) => {
-    const { startDate, endDate, numberOfDays } = getDateRangeBoundaries(filter, fromStr, toStr);
+    const cacheKey = cacheService.generateKey.analyticsManager(managerId, filter, fromStr || '', toStr || '');
 
-    // 1. Resolve manager's owned hotels
-    const managerHotels = await Hotel.find({ owner: managerId }).select('_id name');
-    const hotelIds = managerHotels.map((h) => h._id);
+    return await cacheService.getOrSet(cacheKey, 300, async () => {
+      const { startDate, endDate, numberOfDays } = getDateRangeBoundaries(filter, fromStr, toStr);
 
-    if (hotelIds.length === 0) {
-      return {
-        dateRange: { filter, startDate, endDate, numberOfDays },
-        kpis: {
-          grossRevenue: 0,
-          refunds: 0,
-          netRevenue: 0,
-          totalBookings: 0,
-          confirmedBookings: 0,
-          completedBookings: 0,
-          cancelledBookings: 0,
-          pendingBookings: 0,
-          expiredBookings: 0,
-          occupancyRate: 0,
-          adr: 0,
-          revpar: 0,
-          averageStay: 0,
-          averageBookingValue: 0,
-          cancellationRate: 0,
-        },
-        revenueTrends: [],
-        bookingTrends: [],
-        roomPerformance: [],
-        upcomingStays: [],
-        recentTransactions: [],
-      };
-    }
+      // 1. Resolve manager's owned hotels
+      const managerHotels = await Hotel.find({ owner: managerId }).select('_id name');
+      const hotelIds = managerHotels.map((h) => h._id);
+
+      if (hotelIds.length === 0) {
+        return {
+          dateRange: { filter, startDate, endDate, numberOfDays },
+          kpis: {
+            grossRevenue: 0,
+            refunds: 0,
+            netRevenue: 0,
+            totalBookings: 0,
+            confirmedBookings: 0,
+            completedBookings: 0,
+            cancelledBookings: 0,
+            pendingBookings: 0,
+            expiredBookings: 0,
+            occupancyRate: 0,
+            adr: 0,
+            revpar: 0,
+            averageStay: 0,
+            averageBookingValue: 0,
+            cancellationRate: 0,
+          },
+          revenueTrends: [],
+          bookingTrends: [],
+          roomPerformance: [],
+          upcomingStays: [],
+          recentTransactions: [],
+        };
+      }
 
     // 2. Calculate available room nights across active manager rooms
     const activeRooms = await Room.find({ hotel: { $in: hotelIds }, status: 'available' }).select('totalRooms hotel name type');
@@ -336,130 +339,144 @@ const analyticsService = {
       upcomingStays,
       recentTransactions: filteredRecentTransactions,
     };
-  },
+  });
+},
 
   // Admin Platform-Wide Analytics
   getAdminOverview: async (filter = '30d', fromStr = null, toStr = null) => {
-    const { startDate, endDate, numberOfDays } = getDateRangeBoundaries(filter, fromStr, toStr);
+    const cacheKey = cacheService.generateKey.analyticsAdmin(filter, fromStr || '', toStr || '');
 
-    // Counts
-    const totalHotels = await Hotel.countDocuments();
-    const activeHotels = await Hotel.countDocuments({ status: 'active' });
-    const totalRooms = await Room.countDocuments({ status: 'available' });
-    const totalCustomers = await User.countDocuments({ role: 'customer' });
-    const totalManagers = await User.countDocuments({ role: 'manager' });
+    return await cacheService.getOrSet(cacheKey, 300, async () => {
+      const { startDate, endDate, numberOfDays } = getDateRangeBoundaries(filter, fromStr, toStr);
 
-    // Platform Bookings & Revenue Aggregation
-    const platformAggregation = await Booking.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
+      // Counts
+      const totalHotels = await Hotel.countDocuments();
+      const activeHotels = await Hotel.countDocuments({ status: 'active' });
+      const totalRooms = await Room.countDocuments({ status: 'available' });
+      const totalCustomers = await User.countDocuments({ role: 'customer' });
+      const totalManagers = await User.countDocuments({ role: 'manager' });
+
+      // Platform Bookings & Revenue Aggregation
+      const platformAggregation = await Booking.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
         },
-      },
-      {
-        $facet: {
-          statusCounts: [
-            {
-              $group: {
-                _id: '$status',
-                count: { $sum: 1 },
-              },
-            },
-          ],
-          revenueMetrics: [
-            {
-              $match: { status: { $in: ['confirmed', 'completed'] } },
-            },
-            {
-              $group: {
-                _id: null,
-                grossRevenue: { $sum: '$totalAmount' },
-                totalNights: { $sum: { $multiply: ['$numberOfNights', '$roomsBooked'] } },
-              },
-            },
-          ],
-          monthlyTrends: [
-            {
-              $group: {
-                _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-                revenue: {
-                  $sum: {
-                    $cond: [{ $in: ['$status', ['confirmed', 'completed']] }, '$totalAmount', 0],
-                  },
+        {
+          $facet: {
+            statusCounts: [
+              {
+                $group: {
+                  _id: '$status',
+                  count: { $sum: 1 },
                 },
-                bookings: { $sum: 1 },
               },
-            },
-            { $sort: { _id: 1 } },
-          ],
-          topHotels: [
-            {
-              $match: { status: { $in: ['confirmed', 'completed'] } },
-            },
-            {
-              $group: {
-                _id: '$hotel',
-                revenue: { $sum: '$totalAmount' },
-                bookings: { $sum: 1 },
+            ],
+            revenueMetrics: [
+              {
+                $match: {
+                  status: { $in: ['confirmed', 'completed'] },
+                },
               },
-            },
-            { $sort: { revenue: -1 } },
-            { $limit: 5 },
-            {
-              $lookup: {
-                from: 'hotels',
-                localField: '_id',
-                foreignField: '_id',
-                as: 'hotelInfo',
+              {
+                $group: {
+                  _id: null,
+                  grossRevenue: { $sum: { $ifNull: ['$totalAmount', '$pricing.totalAmount'] } },
+                },
               },
-            },
-            { $unwind: '$hotelInfo' },
-            {
-              $project: {
-                hotelId: '$_id',
-                name: '$hotelInfo.name',
-                city: '$hotelInfo.city',
-                revenue: 1,
-                bookings: 1,
+            ],
+            monthlyTrends: [
+              {
+                $group: {
+                  _id: {
+                    year: { $year: '$createdAt' },
+                    month: { $month: '$createdAt' },
+                  },
+                  revenue: {
+                    $sum: {
+                      $cond: [
+                        { $in: ['$status', ['confirmed', 'completed']] },
+                        { $ifNull: ['$totalAmount', '$pricing.totalAmount'] },
+                        0,
+                      ],
+                    },
+                  },
+                  bookings: { $sum: 1 },
+                },
               },
-            },
-          ],
+              { $sort: { '_id.year': 1, '_id.month': 1 } },
+            ],
+            topHotels: [
+              {
+                $match: { status: { $in: ['confirmed', 'completed'] } },
+              },
+              {
+                $group: {
+                  _id: '$hotel',
+                  revenue: { $sum: { $ifNull: ['$totalAmount', '$pricing.totalAmount'] } },
+                  bookingCount: { $sum: 1 },
+                },
+              },
+              { $sort: { revenue: -1 } },
+              { $limit: 5 },
+              {
+                $lookup: {
+                  from: 'hotels',
+                  localField: '_id',
+                  foreignField: '_id',
+                  as: 'hotelDetails',
+                },
+              },
+              { $unwind: '$hotelDetails' },
+              {
+                $project: {
+                  hotelId: '$_id',
+                  hotelName: '$hotelDetails.name',
+                  city: '$hotelDetails.city',
+                  revenue: 1,
+                  bookingCount: 1,
+                },
+              },
+            ],
+          },
         },
-      },
-    ]);
+      ]);
 
-    const facetResults = platformAggregation[0] || {};
-    const statusMap = {};
-    (facetResults.statusCounts || []).forEach((item) => {
-      statusMap[item._id] = item.count;
+      const facetResults = platformAggregation[0] || {};
+
+      const statusMap = (facetResults.statusCounts || []).reduce((acc, curr) => {
+        acc[curr._id] = curr.count;
+        return acc;
+      }, {});
+
+      const totalBookings = Object.values(statusMap).reduce((a, b) => a + b, 0);
+      const confirmedCount = statusMap.confirmed || 0;
+      const completedCount = statusMap.completed || 0;
+      const cancelledCount = statusMap.cancelled || 0;
+      const activeStayCount = confirmedCount + completedCount;
+
+      const grossRevenue = facetResults.revenueMetrics[0]?.grossRevenue || 0;
+      const cancellationRate = totalBookings > 0 ? Number(((cancelledCount / totalBookings) * 100).toFixed(1)) : 0;
+      const averageBookingValue = activeStayCount > 0 ? Math.round(grossRevenue / activeStayCount) : 0;
+
+      return {
+        dateRange: { filter, startDate, endDate, numberOfDays },
+        kpis: {
+          totalHotels,
+          activeHotels,
+          totalRooms,
+          totalCustomers,
+          totalManagers,
+          totalBookings,
+          grossRevenue,
+          cancellationRate,
+          averageBookingValue,
+        },
+        monthlyTrends: facetResults.monthlyTrends || [],
+        topHotels: facetResults.topHotels || [],
+      };
     });
-
-    const totalBookings = Object.values(statusMap).reduce((a, b) => a + b, 0);
-    const confirmedCount = statusMap.confirmed || 0;
-    const completedCount = statusMap.completed || 0;
-    const cancelledCount = statusMap.cancelled || 0;
-    const activeStayCount = confirmedCount + completedCount;
-
-    const grossRevenue = facetResults.revenueMetrics[0]?.grossRevenue || 0;
-    const cancellationRate = totalBookings > 0 ? Number(((cancelledCount / totalBookings) * 100).toFixed(1)) : 0;
-    const averageBookingValue = activeStayCount > 0 ? Math.round(grossRevenue / activeStayCount) : 0;
-
-    return {
-      dateRange: { filter, startDate, endDate, numberOfDays },
-      kpis: {
-        totalHotels,
-        activeHotels,
-        totalRooms,
-        totalCustomers,
-        totalManagers,
-        totalBookings,
-        grossRevenue,
-        cancellationRate,
-        averageBookingValue,
-      },
-      monthlyTrends: facetResults.monthlyTrends || [],
-      topHotels: facetResults.topHotels || [],
-    };
   },
 };
 

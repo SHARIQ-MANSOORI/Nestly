@@ -64,6 +64,44 @@ Nestly is a modern, high-performance hotel discovery, management, and booking pl
 - **Production Error Sanitization**: Central error handler suppresses internal stack traces in production (`NODE_ENV === 'production'`).
 - **Comprehensive Documentation**: Complete production security policy and incident response procedures detailed in `SECURITY.md`.
 
+### Phase 11: Redis, Caching & Performance Optimization
+- **Speed & Caching Layer**: Introduced Redis (`ioredis`) for high-speed caching while MongoDB remains the permanent source of truth.
+- **Cache-Aside Pattern & Key Namespaces**: Implemented `cacheService.js` with structured key generation (`nestly:v1:hotel:*`, `nestly:v1:search:*`, `nestly:v1:room:*`, `nestly:v1:reviews:*`, `nestly:v1:analytics:*`).
+- **Query Parameter Normalization & Hashing**: Search queries (`city`, `minPrice`, `maxPrice`, `sort`) are sorted deterministically and SHA-256 hashed to guarantee cache hits regardless of query string key ordering.
+- **Selective Cache Invalidation Matrix**: Hotel, room, review, and booking writes automatically purge relevant cache keys using pattern-based scanning (`SCAN`), guaranteeing users never view stale data.
+- **Fail-Safe MongoDB Fallback (Degraded Mode)**: If Redis goes down or is offline, Nestly logs a warning and seamlessly falls back to MongoDB without interrupting application runtime.
+- **Distributed Rate Limiting (`rate-limit-redis`)**: Integrated Redis store into express rate limiters with memory store fallback when Redis is offline.
+- **Health Metrics Endpoint**: Enhanced `/health` and `/api/health` endpoints returning system status (`ok`, `degraded`), database/redis health, and live cache metrics (`hits`, `misses`, `errors`, `hitRatio`). Added `/api/cache/metrics`.
+- **Empirical Benchmarks & Load Testing**: Integrated automated benchmark (`scripts/benchmark.js`) and load test (`scripts/loadTest.js`) suites. Achieved **10x–28x latency speedups** for cached read endpoints.
+- **Detailed Cache Documentation**: Comprehensive architecture, key rules, and fallbacks documented in `docs/CACHING.md`.
+
+### Phase 13: Docker & Containerization
+- **Multi-Stage Backend Dockerfile (`server/Dockerfile`)**: Lightweight `node:20-alpine` production image with non-root security (`USER node`), zero secrets baked in, and `/health` probe.
+- **Multi-Stage Frontend Dockerfile (`client/Dockerfile`)**: `node:20-alpine` build stage producing minified React static assets -> `nginx:1.25-alpine` runtime stage.
+- **Nginx Reverse Proxy (`client/nginx.conf`)**: Serves React SPA on port `80`, handles SPA routing fallback (`try_files $uri /index.html`), and proxies `/api/*` requests internally to `http://backend:5000/api/*`.
+- **Full-Stack Docker Compose (`docker-compose.yml`)**: Orchestrates 4 isolated services (`frontend`, `backend`, `mongodb`, `redis`) on private `nestly-network`.
+- **Database & Cache Persistence**: Named Docker volume `mongodb_data` for persistent MongoDB storage; ephemeral Redis cache layer.
+- **Service Healthchecks**: Automated container health monitoring and startup ordering (`depends_on: { condition: service_healthy }`).
+- **Comprehensive Documentation**: Complete architecture, networking, security, and troubleshooting guide in `docs/DOCKER.md`.
+
+---
+
+## 🐳 Docker Quick Start
+
+To launch Nestly's complete 4-container stack locally:
+
+```bash
+# 1. Build images and start container stack
+docker compose up -d --build
+
+# 2. Check service health status
+docker compose ps
+
+# 3. Access applications:
+# Frontend SPA:  http://localhost:3000
+# Backend API:   http://localhost:5000/health
+```
+
 ---
 
 ## 🔑 Demo Test Accounts
@@ -78,19 +116,75 @@ All accounts use password: `password123`
 
 ---
 
+## ⚙️ Environment Configuration
+
+Add the following environment variables to `server/.env`:
+
+```env
+PORT=5000
+NODE_ENV=development
+MONGO_URI=mongodb://localhost:27017/nestly
+JWT_SECRET=your_jwt_secret_key_change_in_production_2026
+COOKIE_NAME=nestly_token
+FRONTEND_URL=http://localhost:5173
+REDIS_URL=redis://localhost:6379
+```
+
+---
+
 ## 🧪 Verification & Testing Suites
 
 To run automated backend verification suites:
 
 ```bash
 cd server
-node test_api.js      # Phase 1: Discovery & Filter API Suite
-node test_auth.js     # Phase 2: Auth, JWT, Cookie & RBAC Suite
-node test_phase3.js   # Phase 3: Hotel & Room Management Ownership Suite
-node test_phase4.js   # Phase 4: Booking Engine & Concurrency Suite
-node test_phase5.js   # Phase 5: Payment Integration Security Suite
-node test_phase6.js   # Phase 6: Notifications & Communication Event Suite
-node test_phase7.js   # Phase 7: Analytics & Reporting Aggregation Suite
-node test_phase8.js   # Phase 8: Reviews, Ratings & Reputation Suite
-node test_security.js # Phase 9: Security Hardening & Penetration Testing Suite
+# Phase 1-9 Integration & Security Verification
+npx jest tests/integration/security.test.js
+npx jest tests/integration/reviews.test.js
+npx jest tests/integration/analytics.test.js
+
+# Phase 11: Unit & Integration Caching Tests
+npx jest tests/unit/cacheService.test.js
+npx jest tests/integration/caching.test.js
+
+# Phase 11: Performance Benchmarks & Load Tests
+node scripts/benchmark.js
+node scripts/loadTest.js
 ```
+
+---
+
+## ⚙️ Phase 14: CI/CD Pipeline & Code Quality
+
+Nestly uses GitHub Actions for continuous integration, linting, security audits, containerized integration tests, and Docker image build validation.
+
+### Workflow Pipelines (`.github/workflows/`)
+
+- **`ci.yml` (Main CI Pipeline)**:
+  - **Quality & Security**: ESLint (`--max-warnings 0`), secret pattern regex scan, `npm audit`.
+  - **Testing**: Runs full Jest test suite with coverage (`npm run test:coverage`) against MongoDB 7.0 & Redis 7.2 container services.
+  - **Build**: Compiles production frontend bundle using Vite (`npm run build`).
+- **`docker.yml` (Docker Build Validation)**:
+  - Validates `nestly-backend` and `nestly-frontend` multi-stage Dockerfiles via `docker/build-push-action@v5`.
+
+### Local CI Reproduction
+
+```bash
+# 1. Clean Dependency Installation
+npm ci && cd server && npm ci && cd ../client && npm ci && cd ..
+
+# 2. ESLint Code Quality Verification
+npm run lint
+
+# 3. Automated Test Suite with Coverage
+npm run test:coverage
+
+# 4. Frontend Production Build
+npm run build
+
+# 5. Docker Container Build
+docker compose build
+```
+
+See [docs/CICD.md](file:///c:/Users/shari/OneDrive/Desktop/Nestly/docs/CICD.md) for complete pipeline documentation.
+

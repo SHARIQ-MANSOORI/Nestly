@@ -1,8 +1,6 @@
 const request = require('supertest');
 const dbHandler = require('../helpers/dbHandler');
 const app = require('../../app');
-const Booking = require('../../models/Booking');
-const Payment = require('../../models/Payment');
 const { createTestUsers, createTestHotel, createTestRoom, createTestBooking } = require('../fixtures/fixtures');
 
 describe('Payment Integration & Security API Tests', () => {

@@ -15,6 +15,9 @@
     "test:frontend": "cd client && npx vitest run",
     "test:e2e": "npx playwright test",
     "test:coverage": "cd server && npx jest --coverage",
+    "lint": "npm run lint:server && npm run lint:client",
+    "lint:server": "cd server && npm run lint",
+    "lint:client": "cd client && npm run lint",
     "build": "cd client && npm run build"
   },
   "devDependencies": {

@@ -1,12 +1,12 @@
 const xss = require('xss');
 const Review = require('../models/Review');
 const ReviewReport = require('../models/ReviewReport');
-const Booking = require('../models/Booking');
 const Hotel = require('../models/Hotel');
 const reviewEligibilityService = require('./reviewEligibilityService');
 const ratingService = require('./ratingService');
 const notificationService = require('./notificationService');
 const auditService = require('./auditService');
+const cacheService = require('./cacheService');
 
 const reviewService = {
   // Create verified stay review (XSS Sanitized)
@@ -57,6 +57,9 @@ const reviewService = {
     // 5. Update Hotel Rating Aggregate
     await ratingService.recalculateHotelRating(booking.hotel._id || booking.hotel);
 
+    // Invalidate review & hotel rating caches
+    await cacheService.invalidateReviewCache(booking.hotel._id || booking.hotel);
+
     // Audit Log
     await auditService.logEvent({
       actor: userId,
@@ -105,21 +108,26 @@ const reviewService = {
       throw err;
     }
 
-    const validCategories = { ...review.categories };
+    // Format categories
+    const validCategories = {};
     ['cleanliness', 'location', 'service', 'value'].forEach((key) => {
       if (categories[key] && Number(categories[key]) >= 1 && Number(categories[key]) <= 5) {
         validCategories[key] = Number(categories[key]);
       }
     });
 
-    review.rating = Number(rating);
-    review.title = title ? xss(title.trim()) : '';
-    review.comment = xss(comment.trim());
+    if (rating) review.rating = Number(rating);
+    if (title !== undefined) review.title = xss(title.trim());
+    if (comment !== undefined) review.comment = xss(comment.trim());
     review.categories = validCategories;
+
     await review.save();
 
     // Recalculate rating stats
     await ratingService.recalculateHotelRating(review.hotel);
+
+    // Invalidate review cache
+    await cacheService.invalidateReviewCache(review.hotel);
 
     return review;
   },
@@ -145,33 +153,40 @@ const reviewService = {
     // Recalculate rating stats
     await ratingService.recalculateHotelRating(review.hotel);
 
+    // Invalidate review cache
+    await cacheService.invalidateReviewCache(review.hotel);
+
     return { success: true, message: 'Review deleted successfully' };
   },
 
   // Public hotel reviews list with pagination & sorting
   getPublicHotelReviews: async (hotelId, page = 1, limit = 10, sort = 'recent') => {
-    const query = { hotel: hotelId, status: 'published' };
-    const skip = (Number(page) - 1) * Number(limit);
+    const cacheKey = cacheService.generateKey.reviews(hotelId, page, limit, sort);
 
-    let sortOptions = { createdAt: -1 };
-    if (sort === 'highest') sortOptions = { rating: -1, createdAt: -1 };
-    if (sort === 'lowest') sortOptions = { rating: 1, createdAt: -1 };
+    return await cacheService.getOrSet(cacheKey, 300, async () => {
+      const query = { hotel: hotelId, status: 'published' };
+      const skip = (Number(page) - 1) * Number(limit);
 
-    const total = await Review.countDocuments(query);
-    const reviews = await Review.find(query)
-      .populate('user', 'name profileImage')
-      .populate('managerResponse.respondedBy', 'name')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(Number(limit));
+      let sortOptions = { createdAt: -1 };
+      if (sort === 'highest') sortOptions = { rating: -1, createdAt: -1 };
+      if (sort === 'lowest') sortOptions = { rating: 1, createdAt: -1 };
 
-    return {
-      reviews,
-      page: Number(page),
-      limit: Number(limit),
-      total,
-      totalPages: Math.ceil(total / Number(limit)),
-    };
+      const total = await Review.countDocuments(query);
+      const reviews = await Review.find(query)
+        .populate('user', 'name profileImage')
+        .populate('managerResponse.respondedBy', 'name')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(Number(limit));
+
+      return {
+        reviews,
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
+      };
+    });
   },
 
   // Customer submitted reviews
@@ -221,6 +236,9 @@ const reviewService = {
 
     await review.save();
 
+    // Invalidate review cache
+    await cacheService.invalidateReviewCache(review.hotel._id || review.hotel);
+
     await auditService.logEvent({
       actor: managerId,
       action: 'MANAGER_RESPONSE_CREATED',
@@ -260,6 +278,9 @@ const reviewService = {
       review.status = 'reported';
     }
     await review.save();
+
+    // Invalidate review cache
+    await cacheService.invalidateReviewCache(review.hotel);
 
     await auditService.logEvent({
       actor: userId,
@@ -304,12 +325,14 @@ const reviewService = {
         report.review.status = 'hidden';
         await report.review.save();
         await ratingService.recalculateHotelRating(report.review.hotel);
+        await cacheService.invalidateReviewCache(report.review.hotel);
       }
     } else {
       report.status = 'dismissed';
       if (report.review && report.review.status === 'reported') {
         report.review.status = 'published';
         await report.review.save();
+        await cacheService.invalidateReviewCache(report.review.hotel);
       }
     }
 
@@ -343,6 +366,9 @@ const reviewService = {
 
     // Recalculate rating statistics
     await ratingService.recalculateHotelRating(review.hotel);
+
+    // Invalidate review cache
+    await cacheService.invalidateReviewCache(review.hotel);
 
     await auditService.logEvent({
       actor: adminId,

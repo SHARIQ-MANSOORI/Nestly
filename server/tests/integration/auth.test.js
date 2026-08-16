@@ -131,7 +131,7 @@ describe('Authentication & Authorization API Integration Tests', () => {
 
   describe('GET /api/auth/me', () => {
     it('should return currently logged-in user profile', async () => {
-      const user = await User.create({
+      await User.create({
         name: 'Logged User',
         email: 'logged@example.com',
         password: 'Password123!',

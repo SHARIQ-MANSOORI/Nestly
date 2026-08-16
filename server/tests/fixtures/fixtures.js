@@ -2,9 +2,6 @@ const User = require('../../models/User');
 const Hotel = require('../../models/Hotel');
 const Room = require('../../models/Room');
 const Booking = require('../../models/Booking');
-const Review = require('../../models/Review');
-const Payment = require('../../models/Payment');
-const Notification = require('../../models/Notification');
 const { generateToken } = require('../../utils/generateToken');
 
 /**

@@ -2,7 +2,6 @@ const request = require('supertest');
 const dbHandler = require('../helpers/dbHandler');
 const app = require('../../app');
 const Hotel = require('../../models/Hotel');
-const Room = require('../../models/Room');
 const { createTestUsers, createTestHotel } = require('../fixtures/fixtures');
 
 describe('Hotel & Room Management Integration Tests', () => {

@@ -1,13 +1,15 @@
 const Room = require('../models/Room');
 const Hotel = require('../models/Hotel');
 const { updateHotelStartingPrice } = require('./hotelController');
+const cacheService = require('../services/cacheService');
 
 // @desc    Get rooms by hotel ID
 // @route   GET /api/hotels/:hotelId/rooms
 // @access  Public
 const getRoomsByHotel = async (req, res, next) => {
   try {
-    const hotel = await Hotel.findById(req.params.hotelId);
+    const hotelId = req.params.hotelId;
+    const hotel = await Hotel.findById(hotelId);
     if (!hotel) {
       return res.status(404).json({
         success: false,
@@ -15,19 +17,22 @@ const getRoomsByHotel = async (req, res, next) => {
       });
     }
 
-    const query = { hotel: req.params.hotelId };
-
-    // Unless manager owner or admin, filter active rooms
     const isOwnerOrAdmin = req.user && (req.user.role === 'admin' || hotel.owner.toString() === req.user._id.toString());
-    if (!isOwnerOrAdmin) {
-      query.status = 'available';
+    
+    if (isOwnerOrAdmin) {
+      const rooms = await Room.find({ hotel: hotelId });
+      return res.status(200).json({ success: true, count: rooms.length, data: rooms });
     }
 
-    const rooms = await Room.find(query);
+    const cacheKey = cacheService.generateKey.hotelRooms(hotelId);
+    const cachedRooms = await cacheService.getOrSet(cacheKey, 300, async () => {
+      return await Room.find({ hotel: hotelId, status: 'available' });
+    });
+
     res.status(200).json({
       success: true,
-      count: rooms.length,
-      data: rooms,
+      count: cachedRooms.length,
+      data: cachedRooms,
     });
   } catch (error) {
     next(error);
@@ -39,8 +44,12 @@ const getRoomsByHotel = async (req, res, next) => {
 // @access  Public
 const getRoomById = async (req, res, next) => {
   try {
-    const room = await Room.findById(req.params.id).populate('hotel', 'name city location startingPrice rating owner status');
-    if (!room) {
+    const cacheKey = cacheService.generateKey.room(req.params.id);
+    const cachedRoom = await cacheService.getOrSet(cacheKey, 300, async () => {
+      return await Room.findById(req.params.id).populate('hotel', 'name city location startingPrice rating owner status');
+    });
+
+    if (!cachedRoom) {
       return res.status(404).json({
         success: false,
         message: 'Room option not found',
@@ -49,7 +58,7 @@ const getRoomById = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: room,
+      data: cachedRoom,
     });
   } catch (error) {
     next(error);
@@ -99,6 +108,9 @@ const createRoom = async (req, res, next) => {
     // Auto update starting price of the hotel
     await updateHotelStartingPrice(hotelId);
 
+    // Invalidate room & hotel caches
+    await cacheService.invalidateRoomCache(room._id, hotelId);
+
     res.status(201).json({
       success: true,
       message: 'Room package created successfully',
@@ -146,6 +158,9 @@ const updateRoom = async (req, res, next) => {
     // Auto update starting price of associated hotel
     await updateHotelStartingPrice(updatedRoom.hotel);
 
+    // Invalidate room & hotel caches
+    await cacheService.invalidateRoomCache(updatedRoom._id, updatedRoom.hotel);
+
     res.status(200).json({
       success: true,
       message: 'Room package updated successfully',
@@ -170,6 +185,9 @@ const deleteRoom = async (req, res, next) => {
     // Auto update starting price of associated hotel
     const hotelId = room.hotel._id || room.hotel;
     await updateHotelStartingPrice(hotelId);
+
+    // Invalidate room & hotel caches
+    await cacheService.invalidateRoomCache(room._id, hotelId);
 
     res.status(200).json({
       success: true,

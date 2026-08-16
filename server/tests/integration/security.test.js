@@ -1,7 +1,6 @@
 const request = require('supertest');
 const dbHandler = require('../helpers/dbHandler');
 const app = require('../../app');
-const AuditLog = require('../../models/AuditLog');
 const { createTestUsers } = require('../fixtures/fixtures');
 
 describe('Security Hardening & Production Defense Integration Tests', () => {

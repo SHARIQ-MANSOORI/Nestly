@@ -67,7 +67,9 @@ const NotificationsPage = () => {
     if (!n.isRead) {
       try {
         await notificationService.markAsRead(n._id);
-      } catch (e) {}
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     if (n.data?.bookingId) {

@@ -12,6 +12,10 @@ const {
 } = require('./config/security');
 const sanitizeNoSqlQueries = require('./middleware/mongoSanitize');
 const errorHandler = require('./middleware/errorHandler');
+const { connectRedis } = require('./config/redis');
+
+// Initialize Redis Connection
+connectRedis();
 
 const hotelRoutes = require('./routes/hotelRoutes');
 const roomRoutes = require('./routes/roomRoutes');
@@ -46,12 +50,44 @@ app.use(express.urlencoded({ limit: '10kb', extended: true }));
 // 5. NoSQL Injection Prevention Middleware (Sanitizes req.body, req.query, req.params)
 app.use(sanitizeNoSqlQueries);
 
-// Health Check API
-app.get('/api/health', (req, res) => {
+// Health Check API (Supports both /health and /api/health)
+const handleHealthCheck = (req, res) => {
+  const mongoose = require('mongoose');
+  const { isRedisConnected } = require('./config/redis');
+  const cacheService = require('./services/cacheService');
+
+  const dbHealthy = mongoose.connection && mongoose.connection.readyState === 1;
+  const redisHealthy = isRedisConnected();
+
+  let overallStatus = 'ok';
+  if (!dbHealthy) {
+    overallStatus = 'unhealthy';
+  } else if (!redisHealthy) {
+    overallStatus = 'degraded';
+  }
+
+  const statusCode = dbHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    services: {
+      database: dbHealthy ? 'healthy' : 'unhealthy',
+      redis: redisHealthy ? 'healthy' : 'unavailable',
+    },
+    metrics: cacheService.getMetrics(),
+  });
+};
+
+app.get('/health', handleHealthCheck);
+app.get('/api/health', handleHealthCheck);
+
+// Cache Metrics Endpoint
+app.get('/api/cache/metrics', (req, res) => {
+  const cacheService = require('./services/cacheService');
   res.status(200).json({
     success: true,
-    message: 'Nestly API Service is running smoothly',
-    timestamp: new Date().toISOString(),
+    data: cacheService.getMetrics(),
   });
 });
 

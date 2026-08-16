@@ -3,15 +3,20 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/nestly';
+    const isProd = process.env.NODE_ENV === 'production';
     
     // Attempt standard connection
     try {
       const conn = await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 2000,
+        serverSelectionTimeoutMS: isProd ? 10000 : 5000,
       });
       console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
       return conn;
     } catch (primaryErr) {
+      if (isProd) {
+        throw primaryErr;
+      }
+
       console.warn(`[Database] Primary Mongo connection (${mongoUri}) failed: ${primaryErr.message}`);
       console.log(`[Database] Initializing In-Memory MongoDB Server...`);
       

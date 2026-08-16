@@ -2,6 +2,7 @@ const xss = require('xss');
 const Hotel = require('../models/Hotel');
 const Room = require('../models/Room');
 const auditService = require('../services/auditService');
+const cacheService = require('../services/cacheService');
 
 // Helper function to update hotel startingPrice based on active rooms
 const updateHotelStartingPrice = async (hotelId) => {
@@ -14,6 +15,8 @@ const updateHotelStartingPrice = async (hotelId) => {
   return startingPrice;
 };
 
+// @desc    Get public hotels with search, filter, and sort
+// @route   GET /api/hotels
 // @desc    Get public hotels with search, filter, and sort
 // @route   GET /api/hotels
 // @access  Public
@@ -29,63 +32,69 @@ const getHotels = async (req, res, next) => {
       status,
     } = req.query;
 
-    // By default, public discovery lists active hotels only
-    let query = { status: status || 'active' };
+    const cacheKey = cacheService.generateKey.search(req.query);
 
-    // Filter by city / location (Safely escaped regex)
-    if (location && location.trim() !== '') {
-      const sanitizedLocation = xss(location.trim());
-      query.city = { $regex: new RegExp(sanitizedLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') };
-    }
+    const cachedData = await cacheService.getOrSet(cacheKey, 180, async () => {
+      // By default, public discovery lists active hotels only
+      let query = { status: status || 'active' };
 
-    // Keyword Search (Name, City, Location, Description)
-    if (search && search.trim() !== '') {
-      const sanitizedSearch = xss(search.trim());
-      const escapedSearch = sanitizedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = new RegExp(escapedSearch, 'i');
-      query.$or = [
-        { name: searchRegex },
-        { city: searchRegex },
-        { location: searchRegex },
-        { description: searchRegex }
-      ];
-    }
+      // Filter by city / location (Safely escaped regex)
+      if (location && location.trim() !== '') {
+        const sanitizedLocation = xss(location.trim());
+        query.city = { $regex: new RegExp(sanitizedLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') };
+      }
 
-    // Price Filtering
-    if (minPrice || maxPrice) {
-      query.startingPrice = {};
-      if (minPrice && !isNaN(Number(minPrice))) query.startingPrice.$gte = Number(minPrice);
-      if (maxPrice && !isNaN(Number(maxPrice))) query.startingPrice.$lte = Number(maxPrice);
-    }
+      // Keyword Search (Name, City, Location, Description)
+      if (search && search.trim() !== '') {
+        const sanitizedSearch = xss(search.trim());
+        const escapedSearch = sanitizedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(escapedSearch, 'i');
+        query.$or = [
+          { name: searchRegex },
+          { city: searchRegex },
+          { location: searchRegex },
+          { description: searchRegex }
+        ];
+      }
 
-    // Rating Filtering
-    if (minRating && !isNaN(Number(minRating))) {
-      query.rating = { $gte: Number(minRating) };
-    }
+      // Price Filtering
+      if (minPrice || maxPrice) {
+        query.startingPrice = {};
+        if (minPrice && !isNaN(Number(minPrice))) query.startingPrice.$gte = Number(minPrice);
+        if (maxPrice && !isNaN(Number(maxPrice))) query.startingPrice.$lte = Number(maxPrice);
+      }
 
-    // Sorting
-    let sortOptions = {};
-    if (sort === 'price_asc') {
-      sortOptions.startingPrice = 1;
-    } else if (sort === 'price_desc') {
-      sortOptions.startingPrice = -1;
-    } else if (sort === 'rating_desc') {
-      sortOptions.rating = -1;
-    } else if (sort === 'newest') {
-      sortOptions.createdAt = -1;
-    } else {
-      sortOptions.rating = -1;
-      sortOptions.createdAt = -1;
-    }
+      // Rating Filtering
+      if (minRating && !isNaN(Number(minRating))) {
+        query.rating = { $gte: Number(minRating) };
+      }
 
-    const hotels = await Hotel.find(query).sort(sortOptions);
-    const cities = await Hotel.distinct('city', { status: 'active' });
+      // Sorting
+      let sortOptions = {};
+      if (sort === 'price_asc') {
+        sortOptions.startingPrice = 1;
+      } else if (sort === 'price_desc') {
+        sortOptions.startingPrice = -1;
+      } else if (sort === 'rating_desc') {
+        sortOptions.rating = -1;
+      } else if (sort === 'newest') {
+        sortOptions.createdAt = -1;
+      } else {
+        sortOptions.rating = -1;
+        sortOptions.createdAt = -1;
+      }
+
+      const hotels = await Hotel.find(query).sort(sortOptions);
+      const cities = await Hotel.distinct('city', { status: 'active' });
+
+      return { hotels, cities };
+    });
 
     res.status(200).json({
       success: true,
-      count: hotels.length,
-      cities,
-      data: hotels,
+      count: cachedData.hotels.length,
+      cities: cachedData.cities,
+      data: cachedData.hotels,
     });
   } catch (error) {
     next(error);
@@ -97,32 +106,50 @@ const getHotels = async (req, res, next) => {
 // @access  Public
 const getHotelById = async (req, res, next) => {
   try {
-    const hotel = await Hotel.findById(req.params.id).populate('owner', 'name email profileImage');
+    const hotelId = req.params.id;
 
-    if (!hotel) {
+    // Check if user is owner/admin (requires live data)
+    let isOwnerOrAdmin = false;
+    if (req.user) {
+      if (req.user.role === 'admin') {
+        isOwnerOrAdmin = true;
+      } else {
+        const rawHotel = await Hotel.findById(hotelId);
+        if (rawHotel && rawHotel.owner.toString() === req.user._id.toString()) {
+          isOwnerOrAdmin = true;
+        }
+      }
+    }
+
+    if (isOwnerOrAdmin) {
+      const hotel = await Hotel.findById(hotelId).populate('owner', 'name email profileImage');
+      if (!hotel) {
+        return res.status(404).json({ success: false, message: 'Hotel property not found' });
+      }
+      const rooms = await Room.find({ hotel: hotel._id });
+      return res.status(200).json({ success: true, data: { ...hotel.toObject(), rooms } });
+    }
+
+    // Public cached hotel details
+    const cacheKey = cacheService.generateKey.hotel(hotelId);
+    const cachedData = await cacheService.getOrSet(cacheKey, 600, async () => {
+      const hotel = await Hotel.findById(hotelId).populate('owner', 'name email profileImage');
+      if (!hotel) return null;
+
+      const rooms = await Room.find({ hotel: hotel._id, status: 'available' });
+      return { ...hotel.toObject(), rooms };
+    });
+
+    if (!cachedData) {
       return res.status(404).json({
         success: false,
         message: 'Hotel property not found',
       });
     }
 
-    // Fetch rooms for this hotel
-    const roomQuery = { hotel: hotel._id };
-    
-    // Unless requested by owner/admin, filter active rooms
-    const isOwnerOrAdmin = req.user && (req.user.role === 'admin' || hotel.owner._id.toString() === req.user._id.toString());
-    if (!isOwnerOrAdmin) {
-      roomQuery.status = 'available';
-    }
-
-    const rooms = await Room.find(roomQuery);
-
     res.status(200).json({
       success: true,
-      data: {
-        ...hotel.toObject(),
-        rooms,
-      },
+      data: cachedData,
     });
   } catch (error) {
     next(error);
@@ -203,6 +230,9 @@ const createHotel = async (req, res, next) => {
 
     const hotel = await Hotel.create(hotelData);
 
+    // Invalidate search caches
+    await cacheService.deleteMany('nestly:v1:search:*');
+
     await auditService.logEvent({
       actor: req.user._id,
       action: 'HOTEL_CREATED',
@@ -264,6 +294,9 @@ const updateHotel = async (req, res, next) => {
 
     await updateHotelStartingPrice(updatedHotel._id);
 
+    // Invalidate hotel and search caches
+    await cacheService.invalidateHotelCache(updatedHotel._id);
+
     await auditService.logEvent({
       actor: req.user._id,
       action: 'HOTEL_UPDATED',
@@ -296,6 +329,11 @@ const deleteHotel = async (req, res, next) => {
 
     // Soft deactivate associated rooms
     await Room.updateMany({ hotel: hotel._id }, { status: 'inactive' });
+
+    await updateHotelStartingPrice(hotel._id);
+
+    // Invalidate hotel and search caches
+    await cacheService.invalidateHotelCache(hotel._id);
 
     await auditService.logEvent({
       actor: req.user._id,

@@ -4,7 +4,7 @@ const app = require('../../app');
 const { createTestUsers, createTestHotel, createTestRoom, createTestBooking } = require('../fixtures/fixtures');
 
 describe('Analytics & Reporting API Integration Tests', () => {
-  let fixtures, hotelA, hotelB, roomA, roomB;
+  let fixtures, hotelA, hotelB, roomA;
 
   beforeAll(async () => {
     await dbHandler.connect();
@@ -20,7 +20,7 @@ describe('Analytics & Reporting API Integration Tests', () => {
     hotelA = await createTestHotel(fixtures.managerA._id);
     hotelB = await createTestHotel(fixtures.managerB._id);
     roomA = await createTestRoom(hotelA._id, { pricePerNight: 5000 });
-    roomB = await createTestRoom(hotelB._id, { pricePerNight: 8000 });
+    await createTestRoom(hotelB._id, { pricePerNight: 8000 });
 
     // Seed confirmed paid booking for Manager A
     await createTestBooking(fixtures.customerA._id, hotelA._id, roomA._id, {

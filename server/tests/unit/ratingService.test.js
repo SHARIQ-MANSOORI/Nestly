@@ -1,7 +1,6 @@
 const dbHandler = require('../helpers/dbHandler');
 const ratingService = require('../../services/ratingService');
 const Review = require('../../models/Review');
-const Hotel = require('../../models/Hotel');
 const { createTestHotel, createTestRoom, createTestBooking, createTestUsers } = require('../fixtures/fixtures');
 
 describe('Rating Service Aggregation Unit Tests', () => {
